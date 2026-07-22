@@ -6,6 +6,7 @@ import {
   applyEnemyWaveVisual,
   collectEnemyMaterials,
   createEliteRing,
+  createEnemyHitFlashOverlay,
   disposeObject3D,
   getEnemyWaveTier,
   getEnemyVisualScale,
@@ -13,6 +14,20 @@ import {
   shouldAttachWeapon,
 } from './EnemyVisuals.js';
 import { getTowerStats } from './TowerManager.js';
+
+/** Min path progress between enemies (~one body length on a tile segment). */
+const MIN_PATH_GAP = 0.34;
+
+/** @type {import('three').CylinderGeometry} */
+const ENEMY_BEAM_GEO = new THREE.CylinderGeometry(0.05, 0.05, 1, 5);
+ENEMY_BEAM_GEO.rotateX(Math.PI / 2);
+
+/** @param {object} p */
+function releaseEnemyProjectile(p) {
+  p.mesh.parent?.remove(p.mesh);
+  if (p.sharedGeo) p.mesh.material?.dispose();
+  else disposeObject3D(p.mesh);
+}
 
 export class EnemyManager {
   /**
@@ -22,6 +37,7 @@ export class EnemyManager {
     this.game = game;
     this.group = new THREE.Group();
     this.alive = [];
+    this.pendingSpawns = 0;
     this.defs = new Map();
     this.projectiles = [];
   }
@@ -60,6 +76,13 @@ export class EnemyManager {
       root.add(eliteRing);
     }
 
+    root.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        obj.castShadow = false;
+        obj.receiveShadow = false;
+      }
+    });
+
     const waveVisual = applyEnemyWaveVisual(root, def, waveNumber, isBoss);
     return { root, visualScale: baseScale, waveVisual, eliteRing };
   }
@@ -67,12 +90,25 @@ export class EnemyManager {
   /**
    * @param {string} typeId
    * @param {number} [waveNumber]
-   * @param {number} [spawnProgress]
    */
-  async spawn(typeId, waveNumber = 1, spawnProgress = 0) {
+  async spawn(typeId, waveNumber = 1) {
     const def = this.defs.get(typeId);
     if (!def) return null;
 
+    this.pendingSpawns++;
+    try {
+      return await this._spawnEnemy(typeId, waveNumber, def);
+    } finally {
+      this.pendingSpawns--;
+    }
+  }
+
+  /**
+   * @param {string} typeId
+   * @param {number} waveNumber
+   * @param {object} def
+   */
+  async _spawnEnemy(typeId, waveNumber, def) {
     const scale = getWaveScale(waveNumber);
     const isBoss = Boolean(def.boss);
     const diff = this.game.settings.getDifficultyProfile();
@@ -95,6 +131,8 @@ export class EnemyManager {
       waveNumber,
       isBoss,
     );
+    const hitFlashOverlay = createEnemyHitFlashOverlay(visualScale, isBoss);
+    root.add(hitFlashOverlay.mesh);
     const wp = this.game.map.waypoints[0];
     root.position.set(wp.x, isBoss ? 0.85 : 0.6, wp.z);
 
@@ -104,9 +142,6 @@ export class EnemyManager {
         : undefined,
     );
     hpBar.setRatio(1);
-
-    const ramp = 1 + spawnProgress * 0.15;
-    speed *= ramp;
 
     const attackScale = getEnemyAttackScale(waveNumber);
     const canAttack = canEnemyAttack(waveNumber);
@@ -130,6 +165,7 @@ export class EnemyManager {
       pathT: 0,
       alive: true,
       hitFlash: 0,
+      hitFlashOverlay,
       materials: collectEnemyMaterials(root),
       hpBar,
       canAttack,
@@ -156,6 +192,32 @@ export class EnemyManager {
     enemy.hpBar.group.position.y += lift;
   }
 
+  /** @param {object} enemy */
+  getPathProgress(enemy) {
+    return enemy.pathIndex + enemy.pathT;
+  }
+
+  /**
+   * Nearest enemy ahead on the path — O(n log n) for the whole wave.
+   * @returns {Map<object, object | null>}
+   */
+  buildLeaderMap() {
+    /** @type {{ e: object, p: number, i: number }[]} */
+    const entries = [];
+    for (let i = 0; i < this.alive.length; i++) {
+      const e = this.alive[i];
+      if (!e.alive) continue;
+      entries.push({ e, p: e.pathIndex + e.pathT, i });
+    }
+    entries.sort((a, b) => (b.p !== a.p ? b.p - a.p : a.i - b.i));
+
+    const leaders = new Map();
+    for (let j = 1; j < entries.length; j++) {
+      leaders.set(entries[j].e, entries[j - 1].e);
+    }
+    return leaders;
+  }
+
   /** @param {number} dt */
   update(dt) {
     const waypoints = this.game.map.waypoints;
@@ -163,6 +225,7 @@ export class EnemyManager {
 
     const cam = this.game.camera;
     const waveActive = this.game.waves.active;
+    const leaders = this.buildLeaderMap();
 
     for (let i = this.alive.length - 1; i >= 0; i--) {
       const e = this.alive[i];
@@ -189,7 +252,14 @@ export class EnemyManager {
       const to = waypoints[Math.min(e.pathIndex + 1, waypoints.length - 1)];
       const segLen = Math.hypot(to.x - from.x, to.z - from.z) || 0.001;
       const moveSpeed = this.getMoveSpeed(e);
-      const step = (moveSpeed * dt) / segLen;
+      let step = (moveSpeed * dt) / segLen;
+
+      const leader = leaders.get(e);
+      if (leader) {
+        const gap = this.getPathProgress(leader) - this.getPathProgress(e);
+        step = Math.min(step, Math.max(0, gap - MIN_PATH_GAP));
+      }
+
       e.pathT += step;
 
       if (e.pathT >= 1) {
@@ -237,23 +307,31 @@ export class EnemyManager {
    * @param {object} enemy
    * @param {object} tower
    */
-  async fireAtTower(enemy, tower) {
-    const beam = await loadModel('enemy-ufo-beam');
-    const beamScale = 0.24 * (enemy.visualScale ?? 1);
-    beam.scale.setScalar(beamScale);
+  fireAtTower(enemy, tower) {
+    const mat = new THREE.MeshBasicMaterial({
+      color: enemy.isBoss ? 0xff3366 : 0xff6688,
+      transparent: true,
+      opacity: 0.88,
+      depthWrite: false,
+    });
+    const beam = new THREE.Mesh(ENEMY_BEAM_GEO, mat);
 
     const origin = enemy.mesh.position.clone();
     origin.y += enemy.isBoss ? 0.75 : 0.55;
     const target = tower.mesh.position.clone();
     target.y = 0.85;
-    const velocity = target.clone().sub(origin).normalize().multiplyScalar(14);
+    const velocity = target.clone().sub(origin);
+    const length = velocity.length();
+    velocity.normalize().multiplyScalar(14);
 
     beam.position.copy(origin);
+    beam.scale.set(1, 1, Math.max(0.4, length * 0.15));
     beam.lookAt(target);
     this.group.add(beam);
 
     this.projectiles.push({
       mesh: beam,
+      sharedGeo: true,
       velocity,
       damage: enemy.attackDamage,
       targetTower: tower,
@@ -276,21 +354,15 @@ export class EnemyManager {
         const horiz = Math.hypot(dx, dz);
         if (horiz < 1.0) {
           this.game.towers.damageTower(tower, p.damage);
-          this.game.effects.spawnBeamBurst(p.mesh.position.clone());
-          this.group.remove(p.mesh);
-          disposeObject3D(p.mesh);
+          this.game.effects.spawnBeamBurst(p.mesh.position);
+          releaseEnemyProjectile(p);
           this.projectiles.splice(i, 1);
           continue;
         }
       }
 
       if (p.life <= 0) {
-        this.group.remove(p.mesh);
-        if (p.isBeam) disposeObject3D(p.mesh);
-        else {
-          p.mesh.geometry.dispose();
-          p.mesh.material.dispose();
-        }
+        releaseEnemyProjectile(p);
         this.projectiles.splice(i, 1);
       }
     }
@@ -301,12 +373,7 @@ export class EnemyManager {
       this.remove(enemy);
     }
     for (const p of [...this.projectiles]) {
-      this.group.remove(p.mesh);
-      if (p.isBeam) disposeObject3D(p.mesh);
-      else {
-        p.mesh.geometry.dispose();
-        p.mesh.material.dispose();
-      }
+      releaseEnemyProjectile(p);
     }
     this.projectiles = [];
   }
@@ -400,31 +467,34 @@ export class EnemyManager {
 
   /** @param {object} enemy @param {number} dt */
   updateHitFlash(enemy, dt) {
-    if (enemy.hitFlash <= 0) return;
+    const overlay = enemy.hitFlashOverlay;
+    if (enemy.hitFlash <= 0) {
+      if (overlay?.mesh.visible) {
+        overlay.mesh.visible = false;
+        overlay.mat.opacity = 0;
+      }
+      return;
+    }
+
     enemy.hitFlash -= dt;
     const t = THREE.MathUtils.clamp(enemy.hitFlash / 0.18, 0, 1);
-    const flashColor = enemy.isBoss ? 0xff2288 : 0xff5533;
-    for (const m of enemy.materials) {
-      m.emissive.setHex(flashColor);
-      m.emissiveIntensity = t * 0.75;
+    if (overlay) {
+      overlay.mesh.visible = true;
+      overlay.mat.opacity = t * 0.55;
     }
-    if (enemy.hitFlash <= 0) {
-      const wv = enemy.waveVisual;
-      for (const m of enemy.materials) {
-        if (!('emissive' in m)) continue;
-        if (wv) {
-          m.emissive.setHex(wv.emissive);
-          m.emissiveIntensity = wv.emissiveIntensity;
-        } else {
-          m.emissive.setHex(0x000000);
-          m.emissiveIntensity = 0;
-        }
-      }
+
+    if (enemy.hitFlash <= 0 && overlay) {
+      overlay.mesh.visible = false;
+      overlay.mat.opacity = 0;
     }
   }
 
   /** @param {object} enemy */
   removeEnemyMesh(enemy) {
+    if (enemy.hitFlashOverlay) {
+      enemy.mesh.remove(enemy.hitFlashOverlay.mesh);
+      enemy.hitFlashOverlay.mat.dispose();
+    }
     this.group.remove(enemy.mesh);
     disposeObject3D(enemy.mesh);
   }
@@ -447,8 +517,25 @@ export class EnemyManager {
     enemy.hp -= dealt;
     enemy.hitFlash = 0.18;
     enemy.hpBar.setRatio(enemy.hp / enemy.maxHp);
-    this.game.effects.spawnHitFlash(enemy.mesh.position.clone());
 
+    if (enemy.hp <= 0) {
+      this.kill(enemy);
+    }
+  }
+
+  /**
+   * Damage-over-time (no per-tick minimum — avoids burn becoming ~60 DPS at 60fps).
+   * @param {object} enemy
+   * @param {number} amount
+   */
+  applyBurnDamage(enemy, amount) {
+    if (!enemy.alive || amount <= 0) return;
+    const defense = enemy.defense ?? 0;
+    const dealt = amount * (1 - defense);
+    if (dealt <= 0) return;
+    enemy.hp -= dealt;
+    enemy.hitFlash = Math.max(enemy.hitFlash ?? 0, 0.05);
+    enemy.hpBar.setRatio(Math.max(0, enemy.hp / enemy.maxHp));
     if (enemy.hp <= 0) {
       this.kill(enemy);
     }
@@ -481,5 +568,10 @@ export class EnemyManager {
 
   get count() {
     return this.alive.length;
+  }
+
+  /** Enemies still on the path or loading in from the current wave spawn queue. */
+  get hasOnField() {
+    return this.alive.length > 0 || this.pendingSpawns > 0;
   }
 }

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { loadModel } from './AssetLoader.js';
 import { fitTowerModel } from './ModelFit.js';
 
-/** @type {Map<HTMLCanvasElement, { renderer: THREE.WebGLRenderer, _raf: number, dispose: () => void }>} */
+/** @type {Map<HTMLCanvasElement, { renderer: THREE.WebGLRenderer, setActive: (on: boolean) => void, dispose: () => void }>} */
 const previews = new Map();
 
 /**
@@ -50,24 +50,45 @@ export async function mountTowerPreview(canvas, def, tileSize = 2) {
   camera.lookAt(0, 0.45, 0);
 
   let raf = 0;
-  const render = () => {
+  let active = false;
+
+  const tick = () => {
+    raf = 0;
+    if (!active) return;
     root.rotation.y += 0.01;
     renderer.render(scene, camera);
-    raf = requestAnimationFrame(render);
+    raf = requestAnimationFrame(tick);
   };
-  render();
 
   const entry = {
     renderer,
-    _raf: raf,
+    setActive(on) {
+      if (active === on) return;
+      active = on;
+      if (active && !raf) {
+        raf = requestAnimationFrame(tick);
+      } else if (!active && raf) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
+    },
     dispose() {
-      cancelAnimationFrame(this._raf);
+      active = false;
+      if (raf) cancelAnimationFrame(raf);
       renderer.dispose();
       previews.delete(canvas);
     },
   };
+
   previews.set(canvas, entry);
   return entry;
+}
+
+/** Pause or resume all toolbar preview render loops (off during gameplay). */
+export function setTowerPreviewsActive(on) {
+  for (const entry of previews.values()) {
+    entry.setActive(on);
+  }
 }
 
 /** @param {HTMLCanvasElement} canvas */

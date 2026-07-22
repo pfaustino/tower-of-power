@@ -20,6 +20,7 @@ export class Input {
     this.panStartX = 0;
     this.panStartY = 0;
     this.lastPanX = 0;
+    this.lastPanY = 0;
   }
 
   /** @param {import('./Game.js').Game} game */
@@ -48,8 +49,10 @@ export class Input {
       }
       if (this.panDragged) {
         const frameDx = e.clientX - this.lastPanX;
-        this.game.panCamera(frameDx);
+        const frameDy = e.clientY - this.lastPanY;
+        this.game.panCamera(frameDx, frameDy);
         this.lastPanX = e.clientX;
+        this.lastPanY = e.clientY;
         this.canvas.style.cursor = 'grabbing';
       }
       return;
@@ -103,6 +106,7 @@ export class Input {
       this.panStartX = e.clientX;
       this.panStartY = e.clientY;
       this.lastPanX = e.clientX;
+      this.lastPanY = e.clientY;
       this.canvas.setPointerCapture(e.pointerId);
       return;
     }

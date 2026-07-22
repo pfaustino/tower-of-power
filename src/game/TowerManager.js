@@ -12,6 +12,24 @@ import {
 
 const GRAVITY = -22;
 
+/** Shared projectile geometry — never dispose. */
+const PROJ_GEOMETRY = {
+  direct: new THREE.SphereGeometry(0.12, 6, 6),
+  ballistic: new THREE.SphereGeometry(0.16, 6, 6),
+  oil: new THREE.SphereGeometry(0.15, 6, 6),
+  turret: new THREE.SphereGeometry(0.1, 6, 6),
+};
+
+/** @param {object} p */
+function releaseTowerProjectile(p) {
+  p.mesh.parent?.remove(p.mesh);
+  if (p.sharedGeo) p.mesh.material?.dispose();
+  else {
+    p.mesh.geometry?.dispose();
+    p.mesh.material?.dispose();
+  }
+}
+
 /** @param {object} tower */
 export function getTowerStats(tower) {
   const def = tower.def;
@@ -23,7 +41,7 @@ export function getTowerStats(tower) {
     fireRate: def.fireRate * (1 + steps * 0.075),
     oilRadius: (def.oilRadius ?? 2) + steps * 0.1,
     oilDuration: def.oilDuration ?? 5,
-    oilBurnDps: (def.oilBurnDps ?? 10) * (1 + steps * 0.14),
+    oilBurnDps: (def.oilBurnDps ?? 10) * (1 + steps * 0.1),
     slowPercent: def.slowPercent
       ? Math.min(0.6, def.slowPercent * (1 + steps * 0.1))
       : 0,
@@ -45,6 +63,20 @@ export function getRepairCost(tower) {
   const missing = tower.maxHp - tower.hp;
   if (missing <= 0) return 0;
   return Math.max(5, Math.ceil(missing * 0.25));
+}
+
+/** @param {object} tower */
+export function getTotalInvested(tower) {
+  let total = tower.def.cost;
+  for (let lvl = 1; lvl < tower.level; lvl++) {
+    total += Math.floor(tower.def.cost * (0.45 + lvl * 0.42));
+  }
+  return total;
+}
+
+/** @param {object} tower */
+export function getSellValue(tower) {
+  return Math.max(5, Math.floor(getTotalInvested(tower) * 0.65));
 }
 
 /** @param {object[]} towers */
@@ -657,18 +689,14 @@ export class TowerManager {
 
       if (shouldExplode) {
         this.explodeProjectile(p, directHit);
-        this.group.remove(p.mesh);
-        p.mesh.geometry.dispose();
-        p.mesh.material.dispose();
+        releaseTowerProjectile(p);
         this.projectiles.splice(i, 1);
         continue;
       }
 
       if (p.life <= 0) {
         if (isBallistic && splash > 0) this.explodeProjectile(p, null);
-        this.group.remove(p.mesh);
-        p.mesh.geometry.dispose();
-        p.mesh.material.dispose();
+        releaseTowerProjectile(p);
         this.projectiles.splice(i, 1);
       }
     }
@@ -776,16 +804,12 @@ export class TowerManager {
     }
 
     const size = def.projectileSize ?? 0.12;
-    const geo = new THREE.SphereGeometry(size, 8, 8);
-    const emissive = attackType === 'oil' ? 0x331100
-      : isBallistic ? 0x553300
-        : attackType === 'turret' ? 0x113355
-          : 0x443300;
-    const mat = new THREE.MeshStandardMaterial({
+    const projKey = attackType === 'oil' ? 'oil' : isBallistic ? 'ballistic' : attackType === 'turret' ? 'turret' : 'direct';
+    const mat = new THREE.MeshBasicMaterial({
       color: def.projectileColor ?? 0xffe566,
-      emissive,
+      depthWrite: false,
     });
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new THREE.Mesh(PROJ_GEOMETRY[projKey], mat);
     mesh.position.copy(tower.mesh.position);
     mesh.position.y = 0.85;
     this.group.add(mesh);
@@ -811,6 +835,7 @@ export class TowerManager {
 
     this.projectiles.push({
       mesh,
+      sharedGeo: true,
       velocity,
       gravity: isBallistic ? GRAVITY : 0,
       damage: stats.damage,

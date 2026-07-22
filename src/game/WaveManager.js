@@ -66,17 +66,21 @@ export class WaveManager {
     while (this.spawnIndex < this.queue.length && this.queue[this.spawnIndex].at <= this.spawnTimer) {
       const item = this.queue[this.spawnIndex];
       const waveNumber = this.waveIndex + 1;
-      const spawnProgress = this.spawnIndex / Math.max(this.queue.length - 1, 1);
-      this.game.enemies.spawn(item.enemy, waveNumber, spawnProgress);
+      this.game.enemies.spawn(item.enemy, waveNumber);
       this.spawnIndex++;
     }
 
-    if (this.spawnIndex >= this.queue.length && this.game.enemies.count === 0) {
+    if (this.spawnIndex >= this.queue.length && !this.game.enemies.hasOnField) {
       this.active = false;
       this.waveIndex++;
       this.waitingForClear = false;
       this.game.onWaveComplete();
     }
+  }
+
+  /** Remaining scheduled spawns in the active wave. */
+  get spawnsRemaining() {
+    return Math.max(0, this.queue.length - this.spawnIndex);
   }
 
   get isComplete() {

@@ -7,7 +7,7 @@ import { generateWaves } from './WaveGenerator.js';
 import { waveClearBonus } from './WaveScaling.js';
 import { preloadModels } from './AssetLoader.js';
 import { MapBoard } from './MapBoard.js';
-import { TowerManager, getRepairAllCost, getRepairCost, getUpgradeCost } from './TowerManager.js';
+import { TowerManager, getRepairAllCost, getRepairCost, getSellValue, getUpgradeCost } from './TowerManager.js';
 import { EnemyManager } from './EnemyManager.js';
 import { WaveManager } from './WaveManager.js';
 import { Input } from './Input.js';
@@ -85,6 +85,7 @@ export class Game {
     this.ui.bind(this, towersData.towers);
     this.pauseMenu.bind(this);
     this.audio.setVolume(this.settings.soundVolume);
+    this.ui.setTitleBackground(`${import.meta.env.BASE_URL}images/splash.png`);
     this.ui.showTitle();
 
     initDevPanel({
@@ -141,7 +142,9 @@ export class Game {
     this.cameraZoom = 1;
     this.baseCameraOffset = new THREE.Vector3(0, 22, 18);
     this.cameraPanMinX = -12;
-    this.cameraPanMaxX = 12;
+    this.cameraPanMaxX = 16;
+    this.cameraPanMinZ = -6;
+    this.cameraPanMaxZ = 6;
   }
 
   updateCameraPosition() {
@@ -150,13 +153,21 @@ export class Game {
     this.camera.lookAt(this.cameraTarget);
   }
 
-  /** @param {number} screenDeltaX */
-  panCamera(screenDeltaX) {
+  /**
+   * @param {number} screenDeltaX
+   * @param {number} screenDeltaY
+   */
+  panCamera(screenDeltaX, screenDeltaY = 0) {
     const speed = 0.03 * this.cameraZoom;
     this.cameraTarget.x = THREE.MathUtils.clamp(
       this.cameraTarget.x - screenDeltaX * speed,
       this.cameraPanMinX,
       this.cameraPanMaxX,
+    );
+    this.cameraTarget.z = THREE.MathUtils.clamp(
+      this.cameraTarget.z - screenDeltaY * speed,
+      this.cameraPanMinZ,
+      this.cameraPanMaxZ,
     );
     this.updateCameraPosition();
   }
@@ -190,9 +201,10 @@ export class Game {
   }
 
   closePauseMenu() {
-    if (!this.pauseMenu.open) return;
     this.paused = false;
-    this.pauseMenu.hide();
+    if (this.pauseMenu.open) {
+      this.pauseMenu.hide();
+    }
   }
 
   /** @param {number} delta */
@@ -222,7 +234,7 @@ export class Game {
     const sun = new THREE.DirectionalLight(0xfffaf0, this.baseLightIntensities.sun);
     sun.position.set(10, 24, 12);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.mapSize.set(1024, 1024);
     sun.shadow.bias = -0.0004;
     sun.shadow.normalBias = 0.025;
     sun.shadow.camera.near = 1;
@@ -272,7 +284,7 @@ export class Game {
     this.selectTower(this.selectedTowerId);
     this.refreshHud();
     this.ui.setMessage('Pick a tower (1–4), move cursor, LMB to place · RMB cancels');
-    this.ui.setWave(0, this.waves.waves.length);
+    this.ui.setWave(1, this.waves.waves.length);
   }
 
   /**
@@ -395,6 +407,18 @@ export class Game {
     this.ui.setMessage(wasDisabled ? `${tower.def.name} restored` : `${tower.def.name} repaired`);
   }
 
+  trySellSelectedTower() {
+    const tower = this.selectedPlacedTower;
+    if (!tower) return;
+    const value = getSellValue(tower);
+    const name = tower.def.name;
+    this.crystals += value;
+    this.towers.destroyTower(tower, { silent: true });
+    this.audio.uiClick();
+    this.refreshHud();
+    this.ui.setMessage(`Sold ${name} for ${value} crystals`);
+  }
+
   tryRepairAllTowers() {
     if (this.state !== 'playing') return;
     if (this.waves.active) {
@@ -433,16 +457,41 @@ export class Game {
   }
 
   tryStartWave() {
-    if (this.state !== 'playing' || this.paused) return;
+    if (this.state !== 'playing') {
+      if (this.state === 'gameover') {
+        this.ui.setMessage('Outpost overrun — click Continue to retry');
+      }
+      return false;
+    }
+    if (this.paused) {
+      this.ui.setMessage('Game paused — press Esc to resume');
+      return false;
+    }
     if (this.waves.startNextWave()) {
       this.refreshHud();
-      return;
+      return true;
     }
     if (this.waves.isComplete) {
       this.ui.setMessage('All waves cleared — outpost secured!');
-    } else {
-      this.ui.setMessage('Wave already in progress…');
+      return false;
     }
+    if (this.waves.active) {
+      const waveNum = this.waves.waveIndex + 1;
+      const inbound = this.waves.spawnsRemaining;
+      const onField = this.enemies.count;
+      const pending = this.enemies.pendingSpawns;
+      if (onField === 0 && inbound > 0) {
+        this.ui.setMessage(
+          `Wave ${waveNum} — ${inbound} more ${inbound === 1 ? 'enemy' : 'enemies'} still inbound…`,
+        );
+      } else if (onField === 0 && pending > 0) {
+        this.ui.setMessage(`Wave ${waveNum} — last enemies still spawning…`);
+      } else {
+        this.ui.setMessage(`Wave ${waveNum} still in progress (${onField} on field)`);
+      }
+      return false;
+    }
+    return false;
   }
 
   /**
@@ -515,7 +564,8 @@ export class Game {
   collectCrystals(amount) {
     this.crystals += amount;
     this.audio.crystalCollect();
-    this.refreshHud();
+    this.ui.setStats(this.crystals, this.lives);
+    this.ui.updateTowerAffordability(this.crystals);
   }
 
   /**
@@ -578,7 +628,10 @@ export class Game {
     const next = completed + 1;
     const bossNote = next % 10 === 0 ? ' Boss wave next!' : '';
     this.ui.showWaveAnnouncement('Wave Cleared', `Wave ${completed} · +${bonus} crystals`, 'complete');
-    this.ui.setMessage(`Wave ${completed} cleared! +${bonus} crystals.${bossNote} Press Space for wave ${next}.`);
+    this.ui.setMessage(
+      `Wave ${completed} cleared! +${bonus} crystals.${bossNote} Click Start Wave or press Space for wave ${next}.`,
+    );
+    this.ui.setWave(next, this.waves.waves.length);
     this.refreshHud();
   }
 
@@ -615,6 +668,7 @@ export class Game {
     this.map.setOutpostHealth(this.lives);
     this.ui.updateTowerAffordability(this.crystals);
     this.ui.updateRepairAllButton();
+    this.ui.updateNextWaveButton();
     if (this.selectedPlacedTower) {
       this.ui.updateTowerInspector(this.selectedPlacedTower);
     }
@@ -639,6 +693,8 @@ export class Game {
       this.map.update(dt);
     }
 
-    this.renderer.render(this.scene, this.camera);
+    if (this.state !== 'title') {
+      this.renderer.render(this.scene, this.camera);
+    }
   }
 }

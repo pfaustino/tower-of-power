@@ -109,12 +109,41 @@ export function createEliteRing(waveNumber, isBoss, scale) {
   return ring;
 }
 
+/** Shared hit-flash hull — never dispose. */
+const HIT_FLASH_GEO = new THREE.SphereGeometry(1, 8, 8);
+
+/**
+ * Single additive overlay for damage flash — avoids touching every cloned material.
+ * @param {number} visualScale
+ * @param {boolean} [isBoss]
+ */
+export function createEnemyHitFlashOverlay(visualScale, isBoss = false) {
+  const mat = new THREE.MeshBasicMaterial({
+    color: isBoss ? 0xff2288 : 0xff5533,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const mesh = new THREE.Mesh(HIT_FLASH_GEO, mat);
+  const radius = (isBoss ? 0.72 : 0.52) * visualScale;
+  mesh.scale.setScalar(radius);
+  mesh.position.y = (isBoss ? 0.35 : 0.28) * visualScale;
+  mesh.visible = false;
+  mesh.renderOrder = 10;
+  return { mesh, mat };
+}
+
 /** @param {THREE.Object3D} root */
 export function collectEnemyMaterials(root) {
   /** @type {THREE.Material[]} */
   const materials = [];
+  const seen = new Set();
   root.traverse((obj) => {
-    if (obj instanceof THREE.Mesh && obj.material) materials.push(obj.material);
+    if (!(obj instanceof THREE.Mesh) || !obj.material) return;
+    if (seen.has(obj.material)) return;
+    seen.add(obj.material);
+    materials.push(obj.material);
   });
   return materials;
 }

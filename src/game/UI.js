@@ -1,5 +1,5 @@
-import { getRepairAllCost, getRepairCost, getTowerStats, getUpgradeCost } from './TowerManager.js';
-import { mountTowerPreview } from './TowerPreview.js';
+import { getRepairAllCost, getRepairCost, getSellValue, getTowerStats, getUpgradeCost } from './TowerManager.js';
+import { mountTowerPreview, setTowerPreviewsActive } from './TowerPreview.js';
 
 const ATTACK_LABELS = {
   direct: 'Direct bolt — fast single target',
@@ -52,6 +52,7 @@ export class UI {
       towerToolbar: document.getElementById('tower-toolbar'),
       towerPanel: document.getElementById('tower-panel'),
       btnRepairAll: document.getElementById('btn-repair-all'),
+      btnNextWave: document.getElementById('btn-next-wave'),
       btnPlay: document.getElementById('btn-play'),
       btnResult: document.getElementById('btn-result'),
       inspector: document.getElementById('tower-inspector'),
@@ -59,6 +60,7 @@ export class UI {
       inspectorStats: document.getElementById('inspector-stats'),
       btnUpgrade: document.getElementById('btn-upgrade'),
       btnRepair: document.getElementById('btn-repair'),
+      btnSell: document.getElementById('btn-sell'),
       btnInspectorClose: document.getElementById('btn-inspector-close'),
       announcement: document.getElementById('wave-announcement'),
       announceTitle: document.getElementById('wave-announce-title'),
@@ -79,7 +81,9 @@ export class UI {
     this.els.btnResult.addEventListener('click', () => game.dismissResult());
     this.els.btnUpgrade.addEventListener('click', () => game.tryUpgradeSelectedTower());
     this.els.btnRepair.addEventListener('click', () => game.tryRepairSelectedTower());
+    this.els.btnSell.addEventListener('click', () => game.trySellSelectedTower());
     this.els.btnRepairAll.addEventListener('click', () => game.tryRepairAllTowers());
+    this.els.btnNextWave?.addEventListener('click', () => game.tryStartWave());
     this.els.btnInspectorClose.addEventListener('click', () => game.deselectPlacedTower());
     this.buildTowerPanel(towerDefs);
   }
@@ -127,20 +131,29 @@ export class UI {
       'Press 1–4 or pick a tower — move cursor, LMB place, RMB cancel · Space starts wave';
   }
 
+  /** @param {string} url */
+  setTitleBackground(url) {
+    this.els.title.style.backgroundImage = `url('${url}')`;
+  }
+
   showTitle() {
     this.hideWaveAnnouncement();
+    document.getElementById('game-root')?.classList.add('title-active');
     this.els.title.classList.remove('hidden');
     this.els.hud.classList.add('hidden');
     this.els.towerToolbar.classList.add('hidden');
     this.els.inspector.classList.add('hidden');
     this.els.result.classList.add('hidden');
+    setTowerPreviewsActive(true);
   }
 
   showPlaying() {
+    document.getElementById('game-root')?.classList.remove('title-active');
     this.els.title.classList.add('hidden');
     this.els.result.classList.add('hidden');
     this.els.hud.classList.remove('hidden');
     this.els.towerToolbar.classList.remove('hidden');
+    setTowerPreviewsActive(false);
   }
 
   /** @param {number} crystals @param {number} lives */
@@ -232,6 +245,52 @@ export class UI {
     this.els.btnRepairAll.title = `Restore all tower HP for ${cost} crystals`;
   }
 
+  updateNextWaveButton() {
+    const btn = this.els.btnNextWave;
+    if (!btn) return;
+
+    const waves = this.game.waves;
+    const total = waves.waves.length;
+    const nextWave = waves.waveIndex + 1;
+
+    let text;
+    let disabled;
+    let title;
+
+    if (waves.isComplete) {
+      text = 'All Waves Cleared';
+      disabled = true;
+      title = 'Campaign complete';
+    } else if (waves.active) {
+      const inbound = waves.spawnsRemaining;
+      const onField = this.game.enemies.count;
+      const pending = this.game.enemies.pendingSpawns;
+      disabled = true;
+      if (onField === 0 && inbound > 0) {
+        text = `Wave ${nextWave} · ${inbound} inbound`;
+        title = 'More enemies are still spawning for this wave';
+      } else if (onField === 0 && pending > 0) {
+        text = `Wave ${nextWave} · spawning`;
+        title = 'Last enemies are still loading in';
+      } else {
+        text = `Wave ${nextWave} active`;
+        title = 'Finish the current wave before starting the next one';
+      }
+    } else {
+      text = `Start Wave ${nextWave}`;
+      disabled = false;
+      title = `Start wave ${nextWave} of ${total} (Space)`;
+    }
+
+    const key = `${text}\0${disabled}\0${title}`;
+    if (this._nextWaveBtnKey === key) return;
+    this._nextWaveBtnKey = key;
+
+    btn.textContent = text;
+    btn.disabled = disabled;
+    btn.title = title;
+  }
+
   /** @param {object} tower */
   showTowerInspector(tower) {
     this.els.inspector.classList.remove('hidden');
@@ -287,5 +346,9 @@ export class UI {
       this.els.btnRepair.textContent = `Repair · ${repairCost} cr`;
       this.els.btnRepair.disabled = crystals < repairCost;
     }
+
+    const sellValue = getSellValue(tower);
+    this.els.btnSell.textContent = `Sell · +${sellValue} cr`;
+    this.els.btnSell.disabled = false;
   }
 }
