@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tower of Power</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="game-root">
+    <canvas id="game-canvas"></canvas>
+
+    <div id="hud" class="hidden" aria-live="polite">
+      <div class="hud-bar">
+        <div class="hud-stat"><span class="label">Crystals</span><span id="hud-crystals">0</span></div>
+        <div class="hud-stat"><span class="label">Outpost HP</span><span id="hud-lives">0</span></div>
+        <div class="hud-stat"><span class="label">Wave</span><span id="hud-wave">0</span></div>
+      </div>
+      <div id="hud-message" class="hud-message"></div>
+      <div id="hud-hint" class="hud-hint">Pick a tower (1–4), move cursor, LMB place · RMB cancel · Space starts wave</div>
+    </div>
+
+    <div id="tower-toolbar" class="tower-toolbar hidden">
+      <div id="tower-panel" class="tower-panel"></div>
+      <button type="button" id="btn-repair-all" class="toolbar-repair-btn" title="Repair all towers between waves">Repair All</button>
+    </div>
+
+    <div id="tower-inspector" class="tower-inspector hidden" aria-live="polite">
+      <div class="inspector-header">
+        <h3 id="inspector-name" class="inspector-name">Tower</h3>
+        <button type="button" id="btn-inspector-close" class="inspector-close" aria-label="Close">×</button>
+      </div>
+      <p id="inspector-stats" class="inspector-stats"></p>
+      <div class="inspector-actions">
+        <button type="button" id="btn-upgrade" class="btn inspector-btn">Upgrade</button>
+        <button type="button" id="btn-repair" class="btn inspector-btn">Repair</button>
+      </div>
+    </div>
+
+    <div id="wave-announcement" class="wave-announcement hidden" aria-live="assertive">
+      <div id="wave-announce-title" class="wave-announce-title"></div>
+      <div id="wave-announce-subtitle" class="wave-announce-subtitle"></div>
+    </div>
+
+    <div id="title-screen" class="overlay">
+      <div class="overlay-panel">
+        <p class="eyebrow">Defend the Grid</p>
+        <h1 class="brand">Tower of Power</h1>
+        <p class="tagline">UFO scouts are inbound. Spend Power Crystals on towers and hold the outpost.</p>
+        <button type="button" id="btn-play" class="btn primary">Deploy</button>
+        <p class="controls-blurb">Kenney Tower Defense Kit · Three.js</p>
+      </div>
+    </div>
+
+    <div id="result-screen" class="overlay hidden">
+      <div class="overlay-panel">
+        <h2 id="result-title">Wave Cleared</h2>
+        <p id="result-message" class="tagline"></p>
+        <button type="button" id="btn-result" class="btn primary">Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

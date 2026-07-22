@@ -1,0 +1,101 @@
+{
+  "towers": [
+    {
+      "id": "needle-spire",
+      "name": "Needle Spire",
+      "description": "Fast single-target bolts. Great against scouts.",
+      "cost": 50,
+      "hotkey": "1",
+      "attackType": "direct",
+      "range": 6,
+      "damage": 12,
+      "fireRate": 1.2,
+      "projectileSpeed": 18,
+      "projectileColor": 16770406,
+      "projectileSize": 0.12,
+      "maxHp": 100,
+      "maxLevel": 10,
+      "accentColor": 8956031,
+      "bodyProgression": ["tower-round-build-a", "tower-round-build-c"],
+      "models": {
+        "base": "tower-round-base",
+        "body": "tower-round-build-a",
+        "weapon": "weapon-ballista"
+      }
+    },
+    {
+      "id": "boulder-keep",
+      "name": "Boulder Keep",
+      "description": "Lobs boulders that splash damage on impact.",
+      "cost": 75,
+      "hotkey": "2",
+      "attackType": "ballistic",
+      "range": 5.5,
+      "damage": 22,
+      "fireRate": 0.85,
+      "projectileSpeed": 9,
+      "splashRadius": 2.8,
+      "projectileColor": 12040115,
+      "projectileSize": 0.28,
+      "maxHp": 140,
+      "maxLevel": 10,
+      "accentColor": 13408644,
+      "bodyProgression": ["tower-square-build-a", "tower-square-build-c", "tower-square-build-d"],
+      "models": {
+        "base": "tower-round-base",
+        "body": "tower-square-build-a",
+        "weapon": "weapon-catapult"
+      }
+    },
+    {
+      "id": "iron-cannon",
+      "name": "Iron Cannon",
+      "description": "Heavy shells with armor-piercing splash.",
+      "cost": 95,
+      "hotkey": "3",
+      "attackType": "cannon",
+      "range": 5.8,
+      "damage": 30,
+      "fireRate": 0.52,
+      "projectileSpeed": 10,
+      "splashRadius": 2.4,
+      "armorPierce": 0.4,
+      "projectileColor": 7368816,
+      "projectileSize": 0.24,
+      "maxHp": 165,
+      "maxLevel": 10,
+      "accentColor": 8947848,
+      "bodyProgression": ["tower-square-build-d", "tower-square-build-c", "tower-square-build-a"],
+      "models": {
+        "base": "tower-round-base",
+        "body": "tower-square-build-d",
+        "weapon": "weapon-cannon"
+      }
+    },
+    {
+      "id": "pulse-turret",
+      "name": "Pulse Turret",
+      "description": "Rapid pulses slow UFOs and shred swarms.",
+      "cost": 85,
+      "hotkey": "4",
+      "attackType": "turret",
+      "range": 5.2,
+      "damage": 7,
+      "fireRate": 2.35,
+      "projectileSpeed": 24,
+      "projectileColor": 5683583,
+      "projectileSize": 0.09,
+      "slowPercent": 0.32,
+      "slowDuration": 2.2,
+      "maxHp": 115,
+      "maxLevel": 10,
+      "accentColor": 5683455,
+      "bodyProgression": ["tower-round-build-c", "tower-round-build-a"],
+      "models": {
+        "base": "tower-round-base",
+        "body": "tower-round-build-c",
+        "weapon": "weapon-turret"
+      }
+    }
+  ]
+}

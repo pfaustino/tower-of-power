@@ -1,0 +1,17 @@
+{
+  "name": "Crystal Outpost",
+  "tileSize": 2,
+  "startCrystals": 150,
+  "startLives": 20,
+  "grid": [
+    ["build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build"],
+    ["spawn", "path", "path", "path", "path", "path", "path", "path", "path", "build", "build", "build", "build", "build", "build", "build", "build", "build"],
+    ["build", "build", "build", "build", "build", "build", "build", "build", "path", "build", "build", "build", "build", "build", "build", "build", "build", "build"],
+    ["build", "build", "build", "build", "build", "build", "build", "build", "path", "build", "build", "build", "build", "build", "build", "build", "build", "build"],
+    ["build", "build", "path", "path", "path", "path", "path", "path", "path", "build", "build", "build", "build", "build", "build", "build", "build", "build"],
+    ["build", "crystal", "path", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build"],
+    ["build", "build", "path", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build"],
+    ["build", "build", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "path", "end"],
+    ["build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build"]
+  ]
+}
