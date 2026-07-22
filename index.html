@@ -20,7 +20,7 @@
         <div class="hud-stat"><span class="label">Wave</span><span id="hud-wave">0</span></div>
       </div>
       <div id="hud-message" class="hud-message"></div>
-      <div id="hud-hint" class="hud-hint">Pick a tower (1–4), move cursor, LMB place · RMB cancel · Space starts wave</div>
+      <div id="hud-hint" class="hud-hint">Pick a tower (1–4), LMB place · RMB cancel · Space starts wave · Esc menu</div>
     </div>
 
     <div id="tower-toolbar" class="tower-toolbar hidden">
@@ -60,6 +60,59 @@
         <h2 id="result-title">Wave Cleared</h2>
         <p id="result-message" class="tagline"></p>
         <button type="button" id="btn-result" class="btn primary">Continue</button>
+      </div>
+    </div>
+
+    <div id="pause-menu" class="pause-menu hidden" role="dialog" aria-modal="true" aria-labelledby="pause-menu-title">
+      <div class="pause-menu-panel">
+        <h2 id="pause-menu-title" class="pause-menu-title">Paused</h2>
+
+        <nav class="pause-tabs" aria-label="Menu sections">
+          <button type="button" class="pause-tab is-active" data-tab="settings">Settings</button>
+          <button type="button" class="pause-tab" data-tab="difficulty">Difficulty</button>
+          <button type="button" class="pause-tab" data-tab="about">About</button>
+        </nav>
+
+        <div class="pause-panel" data-panel="settings">
+          <label class="setting-row">
+            <span class="setting-label">Sound</span>
+            <input type="range" id="setting-sound" min="0" max="1" step="0.05" />
+            <span id="setting-sound-val" class="setting-value">55%</span>
+          </label>
+          <label class="setting-row">
+            <span class="setting-label">Lighting</span>
+            <input type="range" id="setting-light" min="0.4" max="2.5" step="0.05" />
+            <span id="setting-light-val" class="setting-value">0.75</span>
+          </label>
+        </div>
+
+        <div class="pause-panel hidden" data-panel="difficulty">
+          <p class="pause-note">Applies to newly spawned enemies. Crystal drops scale with difficulty.</p>
+          <div id="difficulty-list" class="difficulty-list"></div>
+        </div>
+
+        <div class="pause-panel hidden" data-panel="about">
+          <p class="about-text">
+            <strong>Tower of Power</strong> — defend the crystal outpost from escalating UFO waves.
+            Spend magnetic crystal pickups on towers, upgrades, and repairs across 100 waves.
+          </p>
+          <p class="about-text about-muted">
+            Built with Three.js · Kenney Tower Defense Kit · Vite
+          </p>
+          <p class="about-text about-muted">© Patrick Faustino · v0.1.0</p>
+          <a
+            class="btn donate-btn"
+            href="https://www.paypal.com/ncp/payment/F3F8CJDA9C7HC"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Donate via PayPal</a>
+        </div>
+
+        <div class="pause-actions">
+          <button type="button" id="btn-pause-resume" class="btn primary">Resume</button>
+          <button type="button" id="btn-pause-close" class="btn hidden">Close</button>
+        </div>
+        <p class="pause-hint">Esc to resume</p>
       </div>
     </div>
   </div>

@@ -14,6 +14,9 @@ import { Input } from './Input.js';
 import { UI } from './UI.js';
 import { AudioManager } from './AudioManager.js';
 import { EffectsManager } from './EffectsManager.js';
+import { CrystalPickupManager } from './CrystalPickupManager.js';
+import { Settings } from './Settings.js';
+import { PauseMenu } from './PauseMenu.js';
 import { initDevPanel } from '../dev/DevPanel.js';
 
 /** @typedef {'title' | 'playing' | 'result' | 'gameover'} GameState */
@@ -27,6 +30,7 @@ export class Game {
     this.placementArmed = false;
     this._placementToken = 0;
     this.selectedPlacedTower = null;
+    this.paused = false;
 
     this.scene = null;
     this.camera = null;
@@ -34,8 +38,11 @@ export class Game {
     this.clock = new THREE.Clock();
 
     this.ui = new UI();
+    this.settings = new Settings();
+    this.pauseMenu = new PauseMenu();
     this.audio = new AudioManager();
     this.effects = new EffectsManager(this);
+    this.crystalPickups = new CrystalPickupManager(this);
     this.input = new Input();
     this.map = new MapBoard(this);
     this.towers = new TowerManager(this);
@@ -69,27 +76,20 @@ export class Game {
     this.scene.add(this.towers.group);
     this.scene.add(this.enemies.group);
     this.scene.add(this.effects.group);
+    this.scene.add(this.crystalPickups.group);
 
     this.enemies.setDefs(enemiesData.enemies);
     this.waves.setWaves(generateWaves(wavesConfig.totalWaves ?? 100));
 
     this.input.init(this);
     this.ui.bind(this, towersData.towers);
+    this.pauseMenu.bind(this);
+    this.audio.setVolume(this.settings.soundVolume);
     this.ui.showTitle();
 
     initDevPanel({
       getStatus: () =>
-        `${this.state} · ${this.crystals}cr · ${this.lives}hp · wave ${this.waves.currentWave} · light ${this.lightLevel.toFixed(2)}`,
-      sliders: [
-        {
-          label: 'Lighting level',
-          min: 0.4,
-          max: 2.5,
-          step: 0.05,
-          value: this.lightLevel,
-          onChange: (v) => this.setLightLevel(v),
-        },
-      ],
+        `${this.state} · ${this.crystals}cr · ${this.lives}hp · wave ${this.waves.currentWave} · ${this.settings.getDifficultyProfile().label}`,
       actions: [
         { label: '+100 crystals', fn: () => { this.crystals += 100; this.refreshHud(); } },
         { label: 'Start wave', fn: () => this.tryStartWave() },
@@ -162,7 +162,37 @@ export class Game {
   }
 
   canPanCamera() {
-    return this.state === 'playing' && !this.placementArmed && !this.selectedPlacedTower;
+    return this.state === 'playing' && !this.paused && !this.placementArmed && !this.selectedPlacedTower;
+  }
+
+  togglePauseMenu() {
+    if (this.pauseMenu.open) {
+      this.closePauseMenu();
+      return;
+    }
+    if (this.state === 'playing') {
+      this.openPauseMenu('playing');
+      return;
+    }
+    if (this.state === 'title') {
+      this.openPauseMenu('title');
+    }
+  }
+
+  /** @param {'playing' | 'title'} mode */
+  openPauseMenu(mode) {
+    this.paused = mode === 'playing';
+    this.pauseMenu.show(mode);
+    if (this.paused) {
+      this.cancelPlacement();
+      this.deselectPlacedTower();
+    }
+  }
+
+  closePauseMenu() {
+    if (!this.pauseMenu.open) return;
+    this.paused = false;
+    this.pauseMenu.hide();
   }
 
   /** @param {number} delta */
@@ -172,7 +202,7 @@ export class Game {
   }
 
   setupLights() {
-    this.lightLevel = 0.75;
+    this.lightLevel = this.settings.lightLevel;
     this.baseLightIntensities = {
       ambient: 0.7,
       hemi: 1.6,
@@ -230,6 +260,8 @@ export class Game {
 
   async startGame() {
     this.audio.unlock();
+    this.closePauseMenu();
+    this.crystalPickups.clear();
     this.crystals = mapData.startCrystals;
     this.lives = mapData.startLives;
     this.waves.setWaves(generateWaves(wavesConfig.totalWaves ?? 100));
@@ -401,9 +433,8 @@ export class Game {
   }
 
   tryStartWave() {
-    if (this.state !== 'playing') return;
+    if (this.state !== 'playing' || this.paused) return;
     if (this.waves.startNextWave()) {
-      this.audio.waveStart();
       this.refreshHud();
       return;
     }
@@ -444,7 +475,6 @@ export class Game {
     this.ui.setWave(n - 1, total);
     this.refreshHud();
     if (this.waves.startNextWave()) {
-      this.audio.waveStart();
       this.refreshHud();
       this.ui.setMessage(`Jumped to wave ${n}`);
     }
@@ -481,14 +511,24 @@ export class Game {
     }
   }
 
-  /** @param {object} enemy */
-  onEnemyKilled(enemy) {
-    this.crystals += enemy.reward ?? enemy.def.reward;
+  /** @param {number} amount */
+  collectCrystals(amount) {
+    this.crystals += amount;
+    this.audio.crystalCollect();
+    this.refreshHud();
+  }
+
+  /**
+   * @param {object} enemy
+   * @param {THREE.Vector3} position
+   */
+  onEnemyKilled(enemy, position) {
+    const drop = enemy.crystalDrop ?? enemy.def.crystalDrop ?? 8;
+    this.crystalPickups.spawn(position, drop);
     this.audio.enemyDeath();
     if (enemy.isBoss) {
-      this.ui.setMessage(`${enemy.def.name} destroyed! +${enemy.reward ?? enemy.def.reward} crystals`);
+      this.ui.setMessage(`${enemy.def.name} destroyed! +${drop} crystals incoming`);
     }
-    this.refreshHud();
   }
 
   /**
@@ -533,7 +573,7 @@ export class Game {
       return;
     }
     const completed = this.waves.waveIndex;
-    const bonus = waveClearBonus(completed);
+    const bonus = waveClearBonus(completed, this.settings.getDifficultyProfile());
     this.crystals += bonus;
     const next = completed + 1;
     const bossNote = next % 10 === 0 ? ' Boss wave next!' : '';
@@ -544,6 +584,7 @@ export class Game {
 
   dismissResult() {
     if (this.state === 'gameover' || this.state === 'result') {
+      this.closePauseMenu();
       this.resetMatch();
       this.ui.showTitle();
       this.state = 'title';
@@ -559,8 +600,10 @@ export class Game {
     }
     this.towers.towers = [];
     this.towers.projectiles = [];
+    this.effects.clearOilPatches();
     this.map.occupied.clear();
     this.enemies.clearCombat();
+    this.crystalPickups.clear();
     for (const e of [...this.enemies.alive]) {
       this.enemies.remove(e);
     }
@@ -587,11 +630,12 @@ export class Game {
     this._raf = requestAnimationFrame(() => this.animate());
     const dt = Math.min(this.clock.getDelta(), 0.05);
 
-    if (this.state === 'playing') {
+    if (this.state === 'playing' && !this.paused) {
       this.waves.update(dt);
       this.enemies.update(dt);
       this.towers.update(dt);
       this.effects.update(dt);
+      this.crystalPickups.update(dt);
       this.map.update(dt);
     }
 

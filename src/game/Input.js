@@ -37,7 +37,8 @@ export class Input {
 
   /** @param {PointerEvent} e */
   onMove(e) {
-    if (this.game.state !== 'playing') return;
+    if (this.game.pauseMenu.open) return;
+    if (this.game.state !== 'playing' || this.game.paused) return;
 
     if (this.panning && e.pointerId === this.panPointerId) {
       const totalDx = e.clientX - this.panStartX;
@@ -85,7 +86,8 @@ export class Input {
 
   /** @param {PointerEvent} e */
   onPointerDown(e) {
-    if (this.game.state !== 'playing') return;
+    if (this.game.pauseMenu.open) return;
+    if (this.game.state !== 'playing' || this.game.paused) return;
     if (e.button === 2) {
       e.preventDefault();
       this.game.cancelPlacement();
@@ -151,13 +153,21 @@ export class Input {
 
   /** @param {WheelEvent} e */
   onWheel(e) {
+    if (this.game.pauseMenu.open || this.game.paused) return;
     e.preventDefault();
     this.game.adjustCameraZoom(e.deltaY * 0.0012);
   }
 
   /** @param {KeyboardEvent} e */
   onKey(e) {
-    if (this.game.state !== 'playing') return;
+    if (e.code === 'Escape') {
+      e.preventDefault();
+      this.game.togglePauseMenu();
+      return;
+    }
+
+    if (this.game.pauseMenu.open) return;
+    if (this.game.state !== 'playing' || this.game.paused) return;
 
     if (e.code === 'Space') {
       e.preventDefault();

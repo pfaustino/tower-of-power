@@ -497,3 +497,174 @@ html, body {
     transform: scale(1) translateY(0);
   }
 }
+
+/* Pause menu */
+.pause-menu {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 10, 18, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.pause-menu.hidden { display: none; }
+
+.pause-menu-panel {
+  width: min(520px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  padding: 1.5rem 1.75rem 1.25rem;
+  background: var(--panel);
+  border: 1px solid rgba(92, 225, 255, 0.28);
+  border-radius: 12px;
+  box-shadow: 0 0 48px rgba(92, 225, 255, 0.1);
+}
+
+.pause-menu-title {
+  margin: 0 0 1rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  text-align: center;
+  color: #fff;
+}
+
+.pause-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.pause-tab {
+  flex: 1;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.45rem 0.35rem;
+  border: 1px solid rgba(92, 225, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(8, 16, 28, 0.6);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.pause-tab.is-active {
+  border-color: var(--accent);
+  color: #fff;
+  background: rgba(42, 143, 163, 0.25);
+}
+
+.pause-panel { margin-bottom: 1rem; }
+
+.setting-row {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr 3rem;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.95rem;
+}
+
+.setting-label {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.setting-row input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.setting-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.pause-note {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.difficulty-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.difficulty-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(92, 225, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(8, 16, 28, 0.55);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.difficulty-btn:hover {
+  border-color: rgba(92, 225, 255, 0.45);
+}
+
+.difficulty-btn.is-selected {
+  border-color: var(--accent);
+  background: rgba(42, 143, 163, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(92, 225, 255, 0.15);
+}
+
+.difficulty-label {
+  display: block;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.03em;
+}
+
+.difficulty-blurb {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.about-text {
+  margin: 0 0 0.75rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.about-muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.donate-btn {
+  display: inline-block;
+  margin-top: 0.5rem;
+  text-decoration: none;
+  text-align: center;
+}
+
+.pause-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.65rem;
+  margin-top: 0.5rem;
+}
+
+.pause-hint {
+  margin: 0.65rem 0 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+}

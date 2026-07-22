@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { loadModel } from './AssetLoader.js';
 import { createHealthBar } from './HealthBar.js';
-import { canEnemyAttack, getEnemyAttackScale, getWaveScale } from './WaveScaling.js';
+import { canEnemyAttack, getCrystalDrop, getEnemyAttackScale, getWaveScale } from './WaveScaling.js';
 import {
   applyEnemyWaveVisual,
   collectEnemyMaterials,
@@ -75,11 +75,13 @@ export class EnemyManager {
 
     const scale = getWaveScale(waveNumber);
     const isBoss = Boolean(def.boss);
+    const diff = this.game.settings.getDifficultyProfile();
 
-    let hp = def.hp * scale.hp;
+    let hp = def.hp * scale.hp * diff.enemyHp;
     let defense = Math.min(0.55, (def.defense ?? 0) + scale.defense);
-    let speed = def.speed * scale.speed;
+    let speed = def.speed * scale.speed * diff.enemySpeed;
     let reward = Math.floor(def.reward * scale.reward);
+    const crystalDrop = getCrystalDrop(def, waveNumber, isBoss, diff);
 
     if (isBoss) {
       hp *= scale.bossHp;
@@ -122,6 +124,7 @@ export class EnemyManager {
       defense,
       speed,
       reward,
+      crystalDrop,
       isBoss,
       pathIndex: 0,
       pathT: 0,
@@ -131,7 +134,7 @@ export class EnemyManager {
       hpBar,
       canAttack,
       attackDamage: canAttack
-        ? (def.attackDamage ?? 4) * attackScale * bossAttackMult
+        ? (def.attackDamage ?? 4) * attackScale * bossAttackMult * diff.enemyAttack
         : 0,
       attackRange: (def.attackRange ?? 4.2) * (isBoss ? 1.1 : 1),
       attackRate: (def.attackRate ?? 0.38) * (0.85 + attackScale * 0.3) * (isBoss ? 0.9 : 1),
@@ -462,9 +465,10 @@ export class EnemyManager {
   /** @param {object} enemy */
   kill(enemy) {
     enemy.alive = false;
-    this.game.effects.spawnDeathPuff(enemy.mesh.position.clone());
+    const pos = enemy.mesh.position.clone();
+    this.game.effects.spawnDeathPuff(pos);
     this.remove(enemy);
-    this.game.onEnemyKilled(enemy);
+    this.game.onEnemyKilled(enemy, pos);
   }
 
   /** @param {object} enemy */

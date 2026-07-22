@@ -1,7 +1,7 @@
 {
   "name": "Crystal Outpost",
   "tileSize": 2,
-  "startCrystals": 150,
+  "startCrystals": 50,
   "startLives": 20,
   "grid": [
     ["build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build", "build"],

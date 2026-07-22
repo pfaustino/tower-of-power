@@ -13,6 +13,7 @@ export class EffectsManager {
     this.game = game;
     this.group = new THREE.Group();
     this.bursts = [];
+    this.oilPatches = [];
     this._beamBurstReady = false;
   }
 
@@ -282,8 +283,186 @@ export class EffectsManager {
     this.bursts.push(burst);
   }
 
+  /**
+   * @param {number} x
+   * @param {number} z
+   * @param {number} radius
+   * @param {number} duration
+   * @param {number} burnDps
+   */
+  spawnOilPatch(x, z, radius, duration, burnDps) {
+    this.spawnOilIgnite(x, z, radius);
+
+    const pool = new THREE.Mesh(
+      new THREE.CircleGeometry(radius, 28),
+      new THREE.MeshBasicMaterial({
+        color: 0x1a1208,
+        transparent: true,
+        opacity: 0.82,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }),
+    );
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.set(x, 0.52, z);
+    this.group.add(pool);
+
+    const fireRing = new THREE.Mesh(
+      new THREE.RingGeometry(radius * 0.2, radius * 0.88, 32),
+      new THREE.MeshBasicMaterial({
+        color: 0xff6622,
+        transparent: true,
+        opacity: 0.55,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }),
+    );
+    fireRing.rotation.x = -Math.PI / 2;
+    fireRing.position.set(x, 0.54, z);
+    this.group.add(fireRing);
+
+    const flames = [];
+    const flameCount = 5;
+    for (let i = 0; i < flameCount; i++) {
+      const angle = (i / flameCount) * Math.PI * 2 + Math.random() * 0.5;
+      const dist = radius * (0.25 + Math.random() * 0.45);
+      const flame = new THREE.Mesh(
+        new THREE.SphereGeometry(0.1 + Math.random() * 0.06, 5, 5),
+        new THREE.MeshBasicMaterial({
+          color: i % 2 === 0 ? 0xffaa33 : 0xff4400,
+          transparent: true,
+          opacity: 0.85,
+        }),
+      );
+      flame.position.set(x + Math.cos(angle) * dist, 0.62, z + Math.sin(angle) * dist);
+      this.group.add(flame);
+      flames.push({ mesh: flame, phase: Math.random() * Math.PI * 2 });
+    }
+
+    this.oilPatches.push({
+      x,
+      z,
+      radius,
+      duration,
+      burnDps,
+      age: 0,
+      pool,
+      fireRing,
+      flames,
+    });
+  }
+
+  /** @param {number} x @param {number} z @param {number} radius */
+  spawnOilIgnite(x, z, radius) {
+    const burst = {
+      age: 0,
+      duration: 0.45,
+      radius,
+      meshes: [],
+    };
+
+    const flash = new THREE.Mesh(
+      new THREE.RingGeometry(radius * 0.05, radius * 0.35, 24),
+      new THREE.MeshBasicMaterial({
+        color: 0xffcc44,
+        transparent: true,
+        opacity: 0.95,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }),
+    );
+    flash.rotation.x = -Math.PI / 2;
+    flash.position.set(x, 0.58, z);
+    this.group.add(flash);
+    burst.meshes.push({ mesh: flash, kind: 'ring' });
+
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.09, 4, 4),
+        new THREE.MeshBasicMaterial({ color: 0xff7722, transparent: true, opacity: 0.9 }),
+      );
+      mesh.position.set(x, 0.7, z);
+      this.group.add(mesh);
+      burst.meshes.push({
+        mesh,
+        kind: 'particle',
+        velocity: new THREE.Vector3(
+          Math.cos(angle) * 3,
+          2.5 + Math.random(),
+          Math.sin(angle) * 3,
+        ),
+      });
+    }
+
+    this.bursts.push(burst);
+  }
+
+  clearOilPatches() {
+    for (const patch of this.oilPatches) {
+      this.group.remove(patch.pool);
+      patch.pool.geometry.dispose();
+      patch.pool.material.dispose();
+      this.group.remove(patch.fireRing);
+      patch.fireRing.geometry.dispose();
+      patch.fireRing.material.dispose();
+      for (const f of patch.flames) {
+        this.group.remove(f.mesh);
+        f.mesh.geometry.dispose();
+        f.mesh.material.dispose();
+      }
+    }
+    this.oilPatches = [];
+  }
+
+  /** @param {number} dt */
+  updateOilPatches(dt) {
+    for (let i = this.oilPatches.length - 1; i >= 0; i--) {
+      const patch = this.oilPatches[i];
+      patch.age += dt;
+      const lifeT = patch.age / patch.duration;
+      const flicker = 0.45 + Math.sin(patch.age * 14) * 0.18 + Math.sin(patch.age * 23) * 0.1;
+
+      patch.pool.material.opacity = Math.max(0, 0.82 * (1 - lifeT * 0.35));
+      patch.fireRing.material.opacity = Math.max(0, flicker * (1 - lifeT * 0.5));
+      patch.fireRing.scale.setScalar(0.92 + Math.sin(patch.age * 9) * 0.06);
+
+      for (const f of patch.flames) {
+        f.mesh.position.y = 0.58 + Math.sin(patch.age * 8 + f.phase) * 0.08;
+        f.mesh.material.opacity = Math.max(0, flicker * (1 - lifeT * 0.6));
+        f.mesh.scale.setScalar(0.85 + Math.sin(patch.age * 11 + f.phase) * 0.2);
+      }
+
+      for (const enemy of this.game.enemies.alive) {
+        const dx = enemy.mesh.position.x - patch.x;
+        const dz = enemy.mesh.position.z - patch.z;
+        if (dx * dx + dz * dz <= patch.radius * patch.radius) {
+          this.game.enemies.damage(enemy, patch.burnDps * dt);
+          enemy.hitFlash = Math.max(enemy.hitFlash ?? 0, 0.06);
+        }
+      }
+
+      if (patch.age >= patch.duration) {
+        this.group.remove(patch.pool);
+        patch.pool.geometry.dispose();
+        patch.pool.material.dispose();
+        this.group.remove(patch.fireRing);
+        patch.fireRing.geometry.dispose();
+        patch.fireRing.material.dispose();
+        for (const f of patch.flames) {
+          this.group.remove(f.mesh);
+          f.mesh.geometry.dispose();
+          f.mesh.material.dispose();
+        }
+        this.oilPatches.splice(i, 1);
+      }
+    }
+  }
+
   /** @param {number} dt */
   update(dt) {
+    this.updateOilPatches(dt);
+
     for (let i = this.bursts.length - 1; i >= 0; i--) {
       const burst = this.bursts[i];
       burst.age += dt;

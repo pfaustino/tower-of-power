@@ -4,7 +4,7 @@ import { mountTowerPreview } from './TowerPreview.js';
 const ATTACK_LABELS = {
   direct: 'Direct bolt — fast single target',
   ballistic: 'Ballistic splash — area damage on impact',
-  cannon: 'Armor-piercing shell — splash + pierce',
+  oil: 'Ignited oil — ground burn zone for 5s (5s reload)',
   turret: 'Rapid pulse — slows enemies while in range',
 };
 
@@ -18,6 +18,11 @@ function buildTowerTooltip(def) {
   ];
   if (def.splashRadius) {
     lines.push(`<span class="tooltip-stat">Splash radius: ${def.splashRadius}m</span>`);
+  }
+  if (def.oilBurnDps) {
+    lines.push(
+      `<span class="tooltip-stat">Oil burn: ${def.oilBurnDps} DPS · ${def.oilRadius ?? 2}m · ${def.oilDuration ?? 5}s</span>`,
+    );
   }
   if (def.armorPierce) {
     lines.push(`<span class="tooltip-stat">Armor pierce: ${Math.round(def.armorPierce * 100)}%</span>`);
@@ -168,6 +173,8 @@ export class UI {
     void el.offsetWidth;
     el.classList.add('is-visible');
 
+    this.game?.audio?.waveAnnouncement(variant);
+
     this._announceTimer = window.setTimeout(() => {
       el.classList.remove('is-visible');
       this._announceHideTimer = window.setTimeout(() => {
@@ -253,7 +260,10 @@ export class UI {
       ? `${tower.def.name} · Lv ${tower.level} · DISABLED`
       : `${tower.def.name} · Lv ${tower.level}`;
     this.els.inspectorStats.textContent =
-      `HP ${Math.ceil(tower.hp)}/${tower.maxHp} · Range ${stats.range.toFixed(1)} · Dmg ${Math.round(stats.damage)}` +
+      `HP ${Math.ceil(tower.hp)}/${tower.maxHp} · Range ${stats.range.toFixed(1)}` +
+      (tower.def.oilBurnDps
+        ? ` · Burn ${Math.round(stats.oilBurnDps)} DPS · ${stats.oilDuration}s zone`
+        : ` · Dmg ${Math.round(stats.damage)}`) +
       (tower.def.armorPierce ? ` · Pierce ${Math.round(tower.def.armorPierce * 100)}%` : '') +
       (stats.slowPercent > 0
         ? ` · Slow ${Math.round(stats.slowPercent * 100)}% (${stats.slowDuration.toFixed(1)}s)`

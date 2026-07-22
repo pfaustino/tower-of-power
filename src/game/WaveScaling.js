@@ -42,10 +42,29 @@ export function waveSpawnInterval(wave) {
 }
 
 /**
- * @param {number} completedWave
+ * Crystals dropped by a killed enemy (before wave-clear bonus).
+ * @param {object} def
+ * @param {number} waveNumber
+ * @param {boolean} [isBoss]
+ * @param {{ crystalMult?: number }} [difficulty]
  */
-export function waveClearBonus(completedWave) {
-  return 10 + completedWave * 2 + Math.floor(completedWave / 10) * 12;
+export function getCrystalDrop(def, waveNumber, isBoss = false, difficulty = {}) {
+  const w = THREE.MathUtils.clamp(waveNumber, 1, MAX_WAVE);
+  const base = def.crystalDrop ?? def.reward ?? 8;
+  const waveBand = 1 + (w - 1) * 0.038;
+  let drop = Math.floor(base * waveBand * (difficulty.crystalMult ?? 1));
+  if (isBoss) drop = Math.floor(drop * 2.4);
+  return Math.max(4, drop);
+}
+
+/**
+ * @param {number} completedWave
+ * @param {{ crystalMult?: number }} [difficulty]
+ */
+export function waveClearBonus(completedWave, difficulty = {}) {
+  const w = Math.max(1, completedWave);
+  const base = Math.max(4, Math.floor(3 + w * 1.1 + Math.floor(w / 10) * 5));
+  return Math.max(4, Math.floor(base * (difficulty.crystalMult ?? 1)));
 }
 
 /**

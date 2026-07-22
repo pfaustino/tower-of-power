@@ -21,6 +21,9 @@ export function getTowerStats(tower) {
     range: def.range + steps * 0.35,
     damage: def.damage * (1 + steps * 0.17),
     fireRate: def.fireRate * (1 + steps * 0.075),
+    oilRadius: (def.oilRadius ?? 2) + steps * 0.1,
+    oilDuration: def.oilDuration ?? 5,
+    oilBurnDps: (def.oilBurnDps ?? 10) * (1 + steps * 0.14),
     slowPercent: def.slowPercent
       ? Math.min(0.6, def.slowPercent * (1 + steps * 0.1))
       : 0,
@@ -609,7 +612,9 @@ export class TowerManager {
 
       if (tower.cooldown <= 0) {
         this.fire(tower, target, stats);
-        tower.cooldown = 1 / stats.fireRate;
+        tower.cooldown = tower.def.attackType === 'oil'
+          ? (tower.def.oilCooldown ?? 5)
+          : 1 / stats.fireRate;
       }
     }
 
@@ -623,6 +628,7 @@ export class TowerManager {
       const canHit = p.age >= (p.minAge ?? 0.1);
       const splash = p.splashRadius ?? 0;
       const isBallistic = (p.gravity ?? 0) !== 0;
+      const isOil = p.attackType === 'oil';
 
       let shouldExplode = false;
       let directHit = null;
@@ -640,7 +646,7 @@ export class TowerManager {
           if (descending && distAim < 0.85 && p.mesh.position.y < 1.1) {
             shouldExplode = true;
           }
-          if (descending && splash > 0 && this.anyEnemyInSplash(p.mesh.position, splash * 0.9)) {
+          if (!isOil && descending && splash > 0 && this.anyEnemyInSplash(p.mesh.position, splash * 0.9)) {
             shouldExplode = true;
           }
         } else if (!isBallistic) {
@@ -685,6 +691,19 @@ export class TowerManager {
 
   /** @param {object} p @param {object | null} directHit */
   explodeProjectile(p, directHit) {
+    if (p.attackType === 'oil') {
+      const pos = p.mesh.position;
+      this.game.effects.spawnOilPatch(
+        pos.x,
+        pos.z,
+        p.oilRadius ?? 2,
+        p.oilDuration ?? 5,
+        p.oilBurnDps ?? 10,
+      );
+      this.game.audio?.impact('oil');
+      return;
+    }
+
     const splash = p.splashRadius ?? 0;
     const pierce = p.armorPierce ?? 0;
     const kind = p.attackType ?? (splash > 0 ? 'ballistic' : 'direct');
@@ -749,8 +768,8 @@ export class TowerManager {
   fire(tower, target, stats) {
     const def = tower.def;
     const attackType = def.attackType ?? (def.splashRadius ? 'ballistic' : 'direct');
-    const isBallistic = attackType === 'ballistic' || attackType === 'cannon';
-    this.game.audio?.shoot(attackType);
+    const isBallistic = attackType === 'ballistic' || attackType === 'oil';
+    this.game.audio?.shoot(attackType === 'oil' ? 'oil' : attackType);
 
     if (attackType === 'turret') {
       this.triggerTowerPulse(tower);
@@ -758,7 +777,7 @@ export class TowerManager {
 
     const size = def.projectileSize ?? 0.12;
     const geo = new THREE.SphereGeometry(size, 8, 8);
-    const emissive = attackType === 'cannon' ? 0x332211
+    const emissive = attackType === 'oil' ? 0x331100
       : isBallistic ? 0x553300
         : attackType === 'turret' ? 0x113355
           : 0x443300;
@@ -779,8 +798,11 @@ export class TowerManager {
         target.mesh.position.x - mesh.position.x,
         target.mesh.position.z - mesh.position.z,
       );
-      const flightTime = THREE.MathUtils.clamp(dist / (attackType === 'cannon' ? 6.5 : 7.5), 0.45, 1.5);
+      const flightTime = THREE.MathUtils.clamp(dist / 7, 0.45, 1.5);
       aimPoint = this.predictEnemyPosition(target, flightTime);
+      if (attackType === 'oil') {
+        aimPoint.y = 0.55;
+      }
       velocity = solveBallisticVelocity(mesh.position, aimPoint, GRAVITY);
     } else {
       const toTarget = new THREE.Vector3().subVectors(target.mesh.position, mesh.position);
@@ -794,6 +816,9 @@ export class TowerManager {
       damage: stats.damage,
       splashRadius: def.splashRadius ?? 0,
       armorPierce: def.armorPierce ?? 0,
+      oilRadius: stats.oilRadius,
+      oilDuration: stats.oilDuration,
+      oilBurnDps: stats.oilBurnDps,
       slowPercent: stats.slowPercent ?? 0,
       slowDuration: stats.slowDuration ?? 0,
       attackType,
