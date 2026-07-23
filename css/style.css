@@ -51,6 +51,8 @@ html, body {
 
 .overlay.hidden { display: none; }
 
+.hidden { display: none !important; }
+
 .title-screen {
   align-items: flex-end;
   justify-content: center;

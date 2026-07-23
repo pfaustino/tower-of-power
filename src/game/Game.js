@@ -77,6 +77,7 @@ export class Game {
 
     await this.map.build(mapData);
     this.scene.add(this.map.group);
+    this.fitCameraToBoard();
     this.scene.add(this.towers.group);
     this.scene.add(this.enemies.group);
     this.scene.add(this.effects.group);
@@ -151,6 +152,35 @@ export class Game {
     this.cameraPanMaxZ = 6;
   }
 
+  /** Zoom out so the full board fits in view (accounts for window aspect ratio). */
+  fitCameraToBoard() {
+    if (!this.map?.grid || !this.camera) return;
+
+    const cols = this.map.grid[0].length;
+    const rows = this.map.grid.length;
+    const ts = this.map.tileSize;
+    const margin = 1.14;
+    const halfW = (cols * ts * margin) / 2;
+    const halfD = (rows * ts * margin) / 2;
+
+    const vFov = THREE.MathUtils.degToRad(this.camera.fov);
+    const aspect = this.camera.aspect;
+    const hFov = 2 * Math.atan(Math.tan(vFov / 2) * aspect);
+    const slant = this.baseCameraOffset.length();
+
+    const zoomW = halfW / Math.tan(hFov / 2) / slant;
+    const zoomD = halfD / Math.tan(vFov / 2) / slant;
+    this.cameraZoom = THREE.MathUtils.clamp(Math.max(zoomW, zoomD), 0.55, 3);
+    this.cameraTarget.set(0, 0, 0);
+
+    this.cameraPanMinX = -halfW * 0.4;
+    this.cameraPanMaxX = halfW * 0.4;
+    this.cameraPanMinZ = -halfD * 0.4;
+    this.cameraPanMaxZ = halfD * 0.4;
+
+    this.updateCameraPosition();
+  }
+
   updateCameraPosition() {
     const offset = this.baseCameraOffset.clone().multiplyScalar(this.cameraZoom);
     this.camera.position.copy(this.cameraTarget).add(offset);
@@ -213,7 +243,7 @@ export class Game {
 
   /** @param {number} delta */
   adjustCameraZoom(delta) {
-    this.cameraZoom = THREE.MathUtils.clamp(this.cameraZoom + delta, 0.55, 1.75);
+    this.cameraZoom = THREE.MathUtils.clamp(this.cameraZoom + delta, 0.55, 3);
     this.updateCameraPosition();
   }
 
@@ -335,8 +365,7 @@ export class Game {
     this.lives = mapData.startLives;
     this._lastRun = null;
     this.waves.setWaves(generateWaves(wavesConfig.totalWaves ?? 100));
-    this.cameraTarget.set(0, 0, 0);
-    this.updateCameraPosition();
+    this.fitCameraToBoard();
     this.state = 'playing';
     this.ui.showPlaying();
     this.selectTower(this.selectedTowerId);
@@ -746,6 +775,7 @@ export class Game {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.fitCameraToBoard();
   }
 
   animate() {

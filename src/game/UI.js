@@ -291,7 +291,7 @@ export class UI {
         return;
       }
       if (result.reason === 'not_configured') {
-        status.textContent = 'Name saved. Global board unavailable in this build.';
+        status.textContent = 'Name saved. Global submit is not configured in this build yet.';
         return;
       }
       if (result.reason === 'no_name') {
@@ -339,7 +339,9 @@ export class UI {
     nameInput.value = progress.leaderboardName ?? '';
     status.textContent = canSubmit
       ? ''
-      : 'Name saves locally. Global submits need VITE_LEADERBOARD_WRITE_KEY in this build.';
+      : canFetch
+        ? 'Name saved locally. Global score submit is not configured in this build yet.'
+        : 'Name saved locally. Global board unavailable.';
     if (panelLocal) panelLocal.innerHTML = this._buildLocalLeaderboard(progress);
     if (tabGlobal) {
       tabGlobal.disabled = !canFetch;
@@ -362,7 +364,9 @@ export class UI {
       onProgress(next);
       status.textContent = canSubmit
         ? 'Global name saved.'
-        : 'Name saved locally. Global submits need VITE_LEADERBOARD_WRITE_KEY in this build.';
+        : canFetch
+          ? 'Name saved locally. Global score submit is not configured in this build yet.'
+          : 'Name saved locally. Global board unavailable.';
     };
   }
 
