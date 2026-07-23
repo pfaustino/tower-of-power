@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { isEnemyAttackWave } from './WaveScaling.js';
 
 const MAX_WAVE = 100;
 
@@ -34,7 +35,7 @@ export function getEnemyVisualScale(waveNumber) {
  * @param {number} waveNumber
  */
 export function shouldAttachWeapon(waveNumber) {
-  return waveNumber >= 7;
+  return isEnemyAttackWave(waveNumber);
 }
 
 /**

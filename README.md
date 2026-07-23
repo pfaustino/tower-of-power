@@ -23,3 +23,11 @@ Kenney [Tower Defense Kit](https://kenney.nl/assets/tower-defense-kit) (CC0). Ru
 ## Stack
 
 Vite · Three.js · GLB models
+
+## Leaderboards
+
+Global scores use the shared [leaderboards](https://github.com/pfaustino/leaderboards) API. Ranked by **waves cleared** (100 on full campaign win).
+
+Local runs are stored in the browser. Set a global name on the title **Leaderboard** screen or after a run ends to submit worldwide.
+
+For local dev with score submission, copy `.env.example` → `.env` and set `VITE_LEADERBOARD_WRITE_KEY` (game key from the leaderboards `WRITE_KEYS` config).

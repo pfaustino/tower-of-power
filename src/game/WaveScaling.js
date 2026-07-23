@@ -76,19 +76,31 @@ export function bossTypeForTier(tier) {
   return bosses[(tier - 1) % bosses.length];
 }
 
+/**
+ * Last 4 waves of each 10-wave band (7–10, 17–20, 27–30, …).
+ * @param {number} wave
+ */
+export function isEnemyAttackWave(wave) {
+  const w = Math.max(1, Math.floor(wave));
+  const posInDecade = w % 10 || 10;
+  return posInDecade >= 7;
+}
+
 /** @param {number} wave */
 export function canEnemyAttack(wave) {
-  return wave >= 7;
+  return isEnemyAttackWave(wave);
 }
 
 /**
- * Attack strength ramps from wave 7–10, then scales slowly afterward.
+ * Attack strength ramps within each return-fire window, then grows per decade.
  * @param {number} wave
  */
 export function getEnemyAttackScale(wave) {
-  if (wave < 7) return 0;
-  if (wave <= 10) return 0.4 + (wave - 7) * 0.2;
-  return 1 + (wave - 10) * 0.04;
+  if (!isEnemyAttackWave(wave)) return 0;
+  const posInDecade = wave % 10 || 10;
+  const ramp = 0.4 + (posInDecade - 7) * 0.2;
+  const decade = Math.floor((wave - 1) / 10);
+  return ramp + decade * 0.35;
 }
 
 export { MAX_WAVE };

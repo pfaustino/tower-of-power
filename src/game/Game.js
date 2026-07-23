@@ -18,8 +18,10 @@ import { CrystalPickupManager } from './CrystalPickupManager.js';
 import { Settings } from './Settings.js';
 import { PauseMenu } from './PauseMenu.js';
 import { initDevPanel } from '../dev/DevPanel.js';
+import { loadProgress, recordRun, saveProgress, setLeaderboardName } from '../lib/progress.js';
+import { trySubmitGlobalRun } from '../lib/globalLeaderboard.js';
 
-/** @typedef {'title' | 'playing' | 'result' | 'gameover'} GameState */
+/** @typedef {'title' | 'playing' | 'result' | 'gameover' | 'leaderboard'} GameState */
 
 export class Game {
   constructor() {
@@ -31,6 +33,8 @@ export class Game {
     this._placementToken = 0;
     this.selectedPlacedTower = null;
     this.paused = false;
+    this.progress = loadProgress();
+    this._lastRun = null;
 
     this.scene = null;
     this.camera = null;
@@ -270,12 +274,66 @@ export class Game {
     this.rimLight.intensity = b.rim * level;
   }
 
+  getWavesCleared() {
+    return this.waves.waveIndex + (this.waves.active ? 1 : 0);
+  }
+
+  /**
+   * @param {boolean} victory
+   * @returns {{ waves: number, crystals: number, difficulty: string, victory: boolean, outpostHp: number, at: number }}
+   */
+  finalizeRun(victory) {
+    const run = {
+      waves: this.getWavesCleared(),
+      crystals: Math.floor(this.crystals),
+      difficulty: this.settings.difficulty,
+      victory,
+      outpostHp: Math.max(0, this.lives),
+      at: Date.now(),
+    };
+    this.progress = recordRun(this.progress, run);
+    saveProgress(this.progress);
+    this._lastRun = run;
+    if (this.progress.leaderboardName?.trim()) {
+      trySubmitGlobalRun(this.progress, run);
+    }
+    return run;
+  }
+
+  /**
+   * @param {string} name
+   * @param {{ waves: number, crystals: number, difficulty: string, victory: boolean, outpostHp: number }} run
+   */
+  saveAndSubmitScore(name, run) {
+    const next = setLeaderboardName(this.progress, name);
+    if (!next) return { ok: false, reason: 'no_name' };
+    this.progress = next;
+    saveProgress(this.progress);
+    return trySubmitGlobalRun(this.progress, run);
+  }
+
+  showLeaderboard() {
+    this.audio.unlock();
+    this.closePauseMenu();
+    this.state = 'leaderboard';
+    this.ui.showLeaderboard(this.progress, (next) => {
+      this.progress = next;
+      saveProgress(this.progress);
+    });
+  }
+
+  closeLeaderboard() {
+    this.state = 'title';
+    this.ui.showTitle();
+  }
+
   async startGame() {
     this.audio.unlock();
     this.closePauseMenu();
     this.crystalPickups.clear();
     this.crystals = mapData.startCrystals;
     this.lives = mapData.startLives;
+    this._lastRun = null;
     this.waves.setWaves(generateWaves(wavesConfig.totalWaves ?? 100));
     this.cameraTarget.set(0, 0, 0);
     this.updateCameraPosition();
@@ -606,9 +664,14 @@ export class Game {
     );
     if (this.lives <= 0) {
       this.state = 'gameover';
+      const run = this.finalizeRun(false);
       this.ui.showWaveAnnouncement('Wave Failed', 'Outpost Overrun', 'failure', 3000);
       window.setTimeout(() => {
-        this.ui.showResult('Outpost Lost', 'The UFOs overran your castle. Rebuild and try again.');
+        this.ui.showResult(
+          'Outpost Lost',
+          'The UFOs overran your castle. Rebuild and try again.',
+          run,
+        );
       }, 2000);
     }
   }
@@ -616,9 +679,14 @@ export class Game {
   onWaveComplete() {
     if (this.waves.isComplete) {
       this.state = 'result';
+      const run = this.finalizeRun(true);
       this.ui.showWaveAnnouncement('Victory', 'All 100 Waves Cleared', 'victory', 3500);
       window.setTimeout(() => {
-        this.ui.showResult('Victory!', 'All 100 waves repelled. The crystal outpost holds.');
+        this.ui.showResult(
+          'Victory!',
+          'All 100 waves repelled. The crystal outpost holds.',
+          run,
+        );
       }, 2200);
       return;
     }

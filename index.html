@@ -50,8 +50,36 @@
     <div id="title-screen" class="overlay title-screen">
       <div class="title-screen-footer">
         <p class="title-tagline">UFO scouts are inbound. Spend Power Crystals on towers and hold the outpost.</p>
-        <button type="button" id="btn-play" class="btn primary btn-deploy">Deploy</button>
+        <div class="title-actions">
+          <button type="button" id="btn-play" class="btn primary btn-deploy">Deploy</button>
+          <button type="button" id="btn-leaderboard" class="btn">Leaderboard</button>
+        </div>
         <p class="title-hint">Esc for settings · Kenney Tower Defense Kit · Three.js</p>
+      </div>
+    </div>
+
+    <div id="leaderboard-screen" class="overlay hidden">
+      <div class="overlay-panel leaderboard-panel">
+        <h2 class="leaderboard-heading">Leaderboard</h2>
+        <div class="leaderboard-tabs">
+          <button type="button" class="btn leaderboard-tab is-active" data-tab="local" id="btn-lb-local">Local</button>
+          <button type="button" class="btn leaderboard-tab" data-tab="global" id="btn-lb-global">Global</button>
+        </div>
+        <div class="leaderboard-name-row">
+          <label class="leaderboard-name-label" for="leaderboard-name">Global name</label>
+          <input id="leaderboard-name" class="leaderboard-name-input" maxlength="24" placeholder="Name for global board" autocomplete="off" />
+          <button type="button" id="btn-save-lb-name" class="btn">Save</button>
+        </div>
+        <p id="leaderboard-status" class="leaderboard-status" aria-live="polite"></p>
+        <div id="leaderboard-panel-local"></div>
+        <div id="leaderboard-panel-global" class="hidden">
+          <p class="leaderboard-sub">Most waves cleared worldwide</p>
+          <p class="leaderboard-loading" id="global-loading">Loading…</p>
+          <div id="global-leaderboard-rows"></div>
+        </div>
+        <div class="leaderboard-actions">
+          <button type="button" id="btn-leaderboard-close" class="btn">Back</button>
+        </div>
       </div>
     </div>
 
@@ -59,6 +87,13 @@
       <div class="overlay-panel">
         <h2 id="result-title">Wave Cleared</h2>
         <p id="result-message" class="tagline"></p>
+        <p id="result-stats" class="result-stats"></p>
+        <div id="result-score-row" class="leaderboard-name-row">
+          <label class="leaderboard-name-label" for="result-name">Global name</label>
+          <input id="result-name" class="leaderboard-name-input" maxlength="24" placeholder="Save to leaderboard" autocomplete="off" />
+          <button type="button" id="btn-result-save-score" class="btn">Save Score</button>
+        </div>
+        <p id="result-score-status" class="leaderboard-status" aria-live="polite"></p>
         <button type="button" id="btn-result" class="btn primary">Continue</button>
       </div>
     </div>

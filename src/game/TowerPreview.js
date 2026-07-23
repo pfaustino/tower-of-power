@@ -5,6 +5,8 @@ import { fitTowerModel } from './ModelFit.js';
 /** @type {Map<HTMLCanvasElement, { renderer: THREE.WebGLRenderer, setActive: (on: boolean) => void, dispose: () => void }>} */
 const previews = new Map();
 
+const SLOW_SPIN_MS = 350;
+
 /**
  * Render a spinning tower model into a toolbar canvas.
  * @param {HTMLCanvasElement} canvas
@@ -50,41 +52,48 @@ export async function mountTowerPreview(canvas, def, tileSize = 2) {
   camera.lookAt(0, 0.45, 0);
 
   let raf = 0;
-  let active = false;
+  let fullSpeed = false;
+  let lastRender = 0;
 
-  const tick = () => {
-    raf = 0;
-    if (!active) return;
-    root.rotation.y += 0.01;
+  const renderFrame = (step) => {
+    root.rotation.y += step;
     renderer.render(scene, camera);
-    raf = requestAnimationFrame(tick);
   };
+
+  const tick = (now) => {
+    raf = requestAnimationFrame(tick);
+    const interval = fullSpeed ? 0 : SLOW_SPIN_MS;
+    if (interval > 0 && now - lastRender < interval) return;
+    lastRender = now;
+    renderFrame(fullSpeed ? 0.01 : 0.05);
+  };
+
+  renderFrame(0);
 
   const entry = {
     renderer,
     setActive(on) {
-      if (active === on) return;
-      active = on;
-      if (active && !raf) {
+      if (fullSpeed === on && raf) return;
+      fullSpeed = on;
+      if (!raf) {
+        lastRender = 0;
         raf = requestAnimationFrame(tick);
-      } else if (!active && raf) {
-        cancelAnimationFrame(raf);
-        raf = 0;
       }
     },
     dispose() {
-      active = false;
       if (raf) cancelAnimationFrame(raf);
+      raf = 0;
       renderer.dispose();
       previews.delete(canvas);
     },
   };
 
   previews.set(canvas, entry);
+  entry.setActive(false);
   return entry;
 }
 
-/** Pause or resume all toolbar preview render loops (off during gameplay). */
+/** Full-speed spin on title; throttled spin during gameplay. */
 export function setTowerPreviewsActive(on) {
   for (const entry of previews.values()) {
     entry.setActive(on);

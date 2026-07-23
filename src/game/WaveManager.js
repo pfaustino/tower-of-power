@@ -1,3 +1,5 @@
+import { canEnemyAttack } from './WaveScaling.js';
+
 export class WaveManager {
   /**
    * @param {import('./Game.js').Game} game
@@ -46,7 +48,7 @@ export class WaveManager {
     this.game.ui.setWave(this.waveIndex + 1, this.waves.length);
     const waveNum = this.waveIndex + 1;
     let subtitle = wave.isBossWave ? 'Boss Incoming' : 'Engage';
-    if (waveNum >= 7 && waveNum <= 10) {
+    if (canEnemyAttack(waveNum)) {
       subtitle = 'Enemies return fire!';
     }
     this.game.ui.showWaveAnnouncement(

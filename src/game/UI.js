@@ -1,5 +1,12 @@
 import { getRepairAllCost, getRepairCost, getSellValue, getTowerStats, getUpgradeCost } from './TowerManager.js';
 import { mountTowerPreview, setTowerPreviewsActive } from './TowerPreview.js';
+import {
+  canFetchGlobalLeaderboard,
+  fetchGlobalLeaderboard,
+  isGlobalLeaderboardConfigured,
+  trySubmitGlobalRun,
+} from '../lib/globalLeaderboard.js';
+import { getBestWaves, setLeaderboardName } from '../lib/progress.js';
 
 const ATTACK_LABELS = {
   direct: 'Direct bolt — fast single target',
@@ -36,6 +43,33 @@ function buildTowerTooltip(def) {
   return lines.filter(Boolean).join('');
 }
 
+/** @param {string} text */
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** @param {number} ts */
+function formatRunDate(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+/** @param {string} id */
+function formatDifficultyLabel(id) {
+  const labels = {
+    casual: 'Casual',
+    normal: 'Normal',
+    veteran: 'Veteran',
+    hard: 'Hard',
+    nightmare: 'Nightmare',
+  };
+  return labels[id] ?? id;
+}
+
 export class UI {
   constructor() {
     this.els = {
@@ -65,6 +99,8 @@ export class UI {
       announcement: document.getElementById('wave-announcement'),
       announceTitle: document.getElementById('wave-announce-title'),
       announceSubtitle: document.getElementById('wave-announce-subtitle'),
+      leaderboard: document.getElementById('leaderboard-screen'),
+      resultStats: document.getElementById('result-stats'),
     };
     this.towerButtons = new Map();
     this._announceTimer = 0;
@@ -85,6 +121,8 @@ export class UI {
     this.els.btnRepairAll.addEventListener('click', () => game.tryRepairAllTowers());
     this.els.btnNextWave?.addEventListener('click', () => game.tryStartWave());
     this.els.btnInspectorClose.addEventListener('click', () => game.deselectPlacedTower());
+    document.getElementById('btn-leaderboard')?.addEventListener('click', () => game.showLeaderboard());
+    document.getElementById('btn-leaderboard-close')?.addEventListener('click', () => game.closeLeaderboard());
     this.buildTowerPanel(towerDefs);
   }
 
@@ -144,6 +182,7 @@ export class UI {
     this.els.towerToolbar.classList.add('hidden');
     this.els.inspector.classList.add('hidden');
     this.els.result.classList.add('hidden');
+    this.els.leaderboard?.classList.add('hidden');
     setTowerPreviewsActive(true);
   }
 
@@ -203,11 +242,231 @@ export class UI {
     this.els.announcement.classList.remove('is-visible');
   }
 
-  /** @param {string} title @param {string} msg */
-  showResult(title, msg) {
+  /** @param {string} title @param {string} msg @param {{ waves?: number, crystals?: number, difficulty?: string, victory?: boolean } | null} [run] */
+  showResult(title, msg, run = null) {
     this.els.resultTitle.textContent = title;
     this.els.resultMessage.textContent = msg;
+    if (this.els.resultStats) {
+      if (run) {
+        const outcome = run.victory ? 'Campaign cleared' : 'Waves cleared';
+        this.els.resultStats.textContent =
+          `${outcome}: ${run.waves} · ${run.crystals ?? 0} cr · ${formatDifficultyLabel(run.difficulty ?? 'normal')}`;
+      } else {
+        this.els.resultStats.textContent = '';
+      }
+    }
     this.els.result.classList.remove('hidden');
+    this._bindResultScoreSave(run);
+  }
+
+  /**
+   * @param {{ waves: number, crystals: number, difficulty: string, victory: boolean } | null} run
+   */
+  _bindResultScoreSave(run) {
+    const nameInput = /** @type {HTMLInputElement | null} */ (document.getElementById('result-name'));
+    const status = document.getElementById('result-score-status');
+    const saveBtn = document.getElementById('btn-result-save-score');
+    const row = document.getElementById('result-score-row');
+    if (!nameInput || !status || !saveBtn || !row) return;
+
+    row.classList.toggle('hidden', !run);
+    if (!run) {
+      status.textContent = '';
+      return;
+    }
+
+    nameInput.value = this.game.progress.leaderboardName ?? '';
+
+    const applyStatus = (result) => {
+      if (!result) {
+        status.textContent = 'Enter a name to save your score.';
+        return;
+      }
+      if (result.error) {
+        status.textContent = result.error;
+        return;
+      }
+      if (result.ok) {
+        status.textContent = `Score submitted as ${result.player}.`;
+        return;
+      }
+      if (result.reason === 'not_configured') {
+        status.textContent = 'Name saved. Global board unavailable in this build.';
+        return;
+      }
+      if (result.reason === 'no_name') {
+        status.textContent = 'Enter a name to save your score.';
+        return;
+      }
+      status.textContent = 'Could not save score.';
+    };
+
+    const save = () => applyStatus(this.game.saveAndSubmitScore(nameInput.value, run));
+    saveBtn.onclick = save;
+    nameInput.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        save();
+      }
+    };
+
+    if (this.game.progress.leaderboardName?.trim()) {
+      applyStatus(this.game.saveAndSubmitScore(this.game.progress.leaderboardName, run));
+    }
+  }
+
+  /**
+   * @param {{ leaderboardName: string, runs: object[] }} progress
+   * @param {(next: object) => void} onProgress
+   */
+  showLeaderboard(progress, onProgress) {
+    this.hideWaveAnnouncement();
+    this.els.title.classList.add('hidden');
+    this.els.hud.classList.add('hidden');
+    this.els.towerToolbar.classList.add('hidden');
+    this.els.inspector.classList.add('hidden');
+    this.els.result.classList.add('hidden');
+    this.els.leaderboard?.classList.remove('hidden');
+
+    const nameInput = /** @type {HTMLInputElement} */ (document.getElementById('leaderboard-name'));
+    const status = document.getElementById('leaderboard-status');
+    const panelLocal = document.getElementById('leaderboard-panel-local');
+    const tabLocal = document.getElementById('btn-lb-local');
+    const tabGlobal = document.getElementById('btn-lb-global');
+    const canFetch = canFetchGlobalLeaderboard();
+    const canSubmit = isGlobalLeaderboardConfigured();
+
+    nameInput.value = progress.leaderboardName ?? '';
+    status.textContent = canSubmit
+      ? ''
+      : 'Name saves locally. Global submits need VITE_LEADERBOARD_WRITE_KEY in this build.';
+    if (panelLocal) panelLocal.innerHTML = this._buildLocalLeaderboard(progress);
+    if (tabGlobal) {
+      tabGlobal.disabled = !canFetch;
+      tabGlobal.title = canFetch ? '' : 'Global board unavailable';
+    }
+    this._showLeaderboardTab('local');
+
+    tabLocal.onclick = () => this._showLeaderboardTab('local');
+    tabGlobal.onclick = () => {
+      if (!canFetch) return;
+      this._showLeaderboardTab('global');
+      this._loadGlobalLeaderboard();
+    };
+    document.getElementById('btn-save-lb-name').onclick = () => {
+      const next = setLeaderboardName(progress, nameInput.value);
+      if (!next) {
+        status.textContent = 'Enter a name (max 24 chars).';
+        return;
+      }
+      onProgress(next);
+      status.textContent = canSubmit
+        ? 'Global name saved.'
+        : 'Name saved locally. Global submits need VITE_LEADERBOARD_WRITE_KEY in this build.';
+    };
+  }
+
+  /** @param {'local' | 'global'} tab */
+  _showLeaderboardTab(tab) {
+    const isLocal = tab === 'local';
+    document.getElementById('btn-lb-local')?.classList.toggle('is-active', isLocal);
+    document.getElementById('btn-lb-global')?.classList.toggle('is-active', !isLocal);
+    document.getElementById('leaderboard-panel-local')?.classList.toggle('hidden', !isLocal);
+    document.getElementById('leaderboard-panel-global')?.classList.toggle('hidden', isLocal);
+  }
+
+  /** @param {{ runs: object[] }} progress */
+  _buildLocalLeaderboard(progress) {
+    const runs = [...(progress.runs ?? [])].sort((a, b) => (b.waves ?? 0) - (a.waves ?? 0));
+    const best = getBestWaves(runs);
+    let rows = '<p class="leaderboard-empty">No runs yet — defend the outpost to set your first record!</p>';
+    if (runs.length) {
+      rows = `
+        <div class="leaderboard-table-wrap">
+          <table class="leaderboard-table" aria-label="Local runs">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Waves</th>
+                <th>Crystals</th>
+                <th>Difficulty</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${runs.map((run, i) => `
+                <tr class="leaderboard-row${run.waves === best ? ' leaderboard-row-best' : ''}">
+                  <td>${i + 1}</td>
+                  <td><strong>${run.waves ?? 0}</strong>${run.victory ? ' ★' : ''}${run.waves === best ? ' <span class="leaderboard-pr">PR</span>' : ''}</td>
+                  <td>${run.crystals ?? '—'}</td>
+                  <td>${escapeHtml(formatDifficultyLabel(run.difficulty ?? 'normal'))}</td>
+                  <td>${formatRunDate(run.at)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+    return `
+      <p class="leaderboard-sub">Best runs on this device · ${runs.length} recorded</p>
+      <div class="leaderboard-bests">
+        <div class="leaderboard-stat"><span>Best waves</span><strong>${best > 0 ? best : '—'}</strong></div>
+        <div class="leaderboard-stat"><span>Runs logged</span><strong>${runs.length}</strong></div>
+      </div>
+      <h3 class="leaderboard-section-title">Recent runs</h3>
+      ${rows}
+    `;
+  }
+
+  async _loadGlobalLeaderboard() {
+    const loading = document.getElementById('global-loading');
+    const rowsEl = document.getElementById('global-leaderboard-rows');
+    if (!loading || !rowsEl) return;
+
+    loading.classList.remove('hidden');
+    rowsEl.innerHTML = '';
+    const result = await fetchGlobalLeaderboard(50);
+    loading.classList.add('hidden');
+
+    if (!result.ok) {
+      rowsEl.innerHTML = `<p class="leaderboard-empty">${escapeHtml(result.error)}</p>`;
+      return;
+    }
+    rowsEl.innerHTML = this._buildGlobalLeaderboard(result.rows);
+  }
+
+  /** @param {Array<{ player: string, value: number, meta?: object | null }>} rows */
+  _buildGlobalLeaderboard(rows) {
+    if (!rows.length) {
+      return '<p class="leaderboard-empty">No global scores yet — be the first!</p>';
+    }
+    return `
+      <div class="leaderboard-table-wrap">
+        <table class="leaderboard-table" aria-label="Global top runs">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Player</th>
+              <th>Waves</th>
+              <th>Crystals</th>
+              <th>Difficulty</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((row, i) => `
+              <tr class="leaderboard-row${i === 0 ? ' leaderboard-row-best' : ''}">
+                <td>${i + 1}</td>
+                <td>${escapeHtml(row.player)}</td>
+                <td><strong>${row.value}</strong>${row.meta?.victory ? ' ★' : ''}</td>
+                <td>${row.meta?.crystals ?? '—'}</td>
+                <td>${escapeHtml(formatDifficultyLabel(row.meta?.difficulty ?? 'normal'))}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
   }
 
   /** @param {number} crystals */
