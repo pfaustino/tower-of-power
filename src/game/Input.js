@@ -95,6 +95,7 @@ export class Input {
       e.preventDefault();
       this.game.cancelPlacement();
       this.game.deselectPlacedTower();
+      this.game.deselectEnemy();
       return;
     }
     if (e.button !== 0) return;
@@ -111,9 +112,10 @@ export class Input {
       return;
     }
 
+    this.syncPointer(e);
     const { x, z } = this.hoverGrid;
-    if (x < 0 || z < 0) return;
     if (this.game.placementArmed) {
+      if (x < 0 || z < 0) return;
       const existing = this.game.towers.pickAt(x, z);
       if (existing) {
         this.game.selectPlacedTower(existing);
@@ -122,7 +124,7 @@ export class Input {
       this.game.tryPlaceTower(x, z);
       return;
     }
-    this.game.trySelectPlacedTower(x, z);
+    this.game.trySelectPlacedTower(x, z, this.raycaster);
   }
 
   /** @param {PointerEvent} e */
@@ -139,10 +141,9 @@ export class Input {
     this.panDragged = false;
 
     if (wasClick && e.button === 0) {
+      this.syncPointer(e);
       const { x, z } = this.hoverGrid;
-      if (x >= 0 && z >= 0) {
-        this.game.trySelectPlacedTower(x, z);
-      }
+      this.game.trySelectPlacedTower(x, z, this.raycaster);
     }
   }
 
@@ -152,6 +153,7 @@ export class Input {
     if (this.game.state === 'playing') {
       this.game.cancelPlacement();
       this.game.deselectPlacedTower();
+      this.game.deselectEnemy();
     }
   }
 
@@ -186,6 +188,17 @@ export class Input {
         return;
       }
     }
+  }
+
+  /** @param {PointerEvent} e */
+  syncPointer(e) {
+    const hit = this.intersectGround(e);
+    if (!hit) {
+      this.hoverGrid = { x: -1, z: -1 };
+      return null;
+    }
+    this.hoverGrid = this.game.map.worldToGrid(hit.x, hit.z);
+    return hit;
   }
 
   /** @param {PointerEvent} e */

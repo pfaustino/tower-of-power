@@ -40,6 +40,8 @@ export class EnemyManager {
     this.pendingSpawns = 0;
     this.defs = new Map();
     this.projectiles = [];
+    /** @type {object | null} */
+    this._highlightedEnemy = null;
   }
 
   /** @param {object[]} enemyList */
@@ -180,9 +182,78 @@ export class EnemyManager {
     };
     this.group.add(root);
     this.group.add(hpBar.group);
+    root.userData.enemy = enemy;
     this.alive.push(enemy);
     this.syncHealthBarPosition(enemy);
     return enemy;
+  }
+
+  /**
+   * Pick the nearest enemy along a ray (click-to-inspect).
+   * @param {THREE.Raycaster} raycaster
+   */
+  pickWithRaycaster(raycaster) {
+    const roots = [];
+    for (const enemy of this.alive) {
+      if (enemy.alive) roots.push(enemy.mesh);
+    }
+    if (!roots.length) return null;
+    const hits = raycaster.intersectObjects(roots, true);
+    for (const hit of hits) {
+      let obj = hit.object;
+      while (obj) {
+        const enemy = obj.userData?.enemy;
+        if (enemy?.alive) return enemy;
+        obj = obj.parent;
+      }
+    }
+
+    // Fallback: nearest UFO to the click ray (small models are easy to miss).
+    const maxDist = 1.6;
+    let best = null;
+    let bestDist = maxDist;
+    const point = new THREE.Vector3();
+    for (const enemy of this.alive) {
+      if (!enemy.alive) continue;
+      raycaster.ray.closestPointToPoint(enemy.mesh.position, point);
+      const dist = point.distanceTo(enemy.mesh.position);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = enemy;
+      }
+    }
+    return best;
+  }
+
+  /** @param {object | null} enemy */
+  setSelectionHighlight(enemy) {
+    if (this._highlightedEnemy && this._highlightedEnemy !== enemy) {
+      this.clearSelectionHighlight(this._highlightedEnemy);
+    }
+    this._highlightedEnemy = enemy ?? null;
+    if (!enemy?.materials) return;
+    for (const mat of enemy.materials) {
+      if (!mat?.emissive) continue;
+      if (mat.userData._inspectEmissive == null) {
+        mat.userData._inspectEmissive = mat.emissive.getHex();
+        mat.userData._inspectEmissiveIntensity = mat.emissiveIntensity ?? 0;
+      }
+      mat.emissive.setHex(0xff6688);
+      mat.emissiveIntensity = 0.55;
+    }
+  }
+
+  /** @param {object} enemy */
+  clearSelectionHighlight(enemy) {
+    if (!enemy?.materials) return;
+    for (const mat of enemy.materials) {
+      if (!mat?.emissive || mat.userData._inspectEmissive == null) continue;
+      mat.emissive.setHex(mat.userData._inspectEmissive);
+      mat.emissiveIntensity = mat.userData._inspectEmissiveIntensity ?? 0;
+      delete mat.userData._inspectEmissive;
+      delete mat.userData._inspectEmissiveIntensity;
+    }
+    if (this._highlightedEnemy === enemy) this._highlightedEnemy = null;
   }
 
   /** @param {object} enemy */
@@ -408,6 +479,14 @@ export class EnemyManager {
     enemy.slowMultiplier = 1;
     enemy.slowDuration = 0;
     if (enemy.hitFlash > 0) return;
+    if (this.game.selectedEnemy === enemy) {
+      for (const m of enemy.materials) {
+        if (!('emissive' in m)) continue;
+        m.emissive.setHex(0xff6688);
+        m.emissiveIntensity = 0.55;
+      }
+      return;
+    }
 
     const wv = enemy.waveVisual;
     for (const m of enemy.materials) {
@@ -450,14 +529,15 @@ export class EnemyManager {
     if (enemy.slowTimer <= 0) return;
 
     enemy.slowTimer = Math.max(0, enemy.slowTimer - dt);
-    const wv = enemy.waveVisual;
-    const slowStrength = 1 - (enemy.slowMultiplier ?? 1);
-    const pulse = 0.12 + Math.sin(this.game.clock.getElapsedTime() * 8) * 0.04;
-
-    for (const m of enemy.materials) {
-      if (!('emissive' in m) || enemy.hitFlash > 0) continue;
-      m.emissive.setHex(0x55ccff);
-      m.emissiveIntensity = (wv?.emissiveIntensity ?? 0.05) + slowStrength * 0.35 + pulse;
+    if (this.game.selectedEnemy !== enemy && enemy.hitFlash <= 0) {
+      const wv = enemy.waveVisual;
+      const slowStrength = 1 - (enemy.slowMultiplier ?? 1);
+      const pulse = 0.12 + Math.sin(this.game.clock.getElapsedTime() * 8) * 0.04;
+      for (const m of enemy.materials) {
+        if (!('emissive' in m)) continue;
+        m.emissive.setHex(0x55ccff);
+        m.emissiveIntensity = (wv?.emissiveIntensity ?? 0.05) + slowStrength * 0.35 + pulse;
+      }
     }
 
     if (enemy.slowTimer <= 0) {
@@ -502,6 +582,11 @@ export class EnemyManager {
   /** @param {object} enemy */
   leak(enemy) {
     enemy.alive = false;
+    if (this.game.selectedEnemy === enemy) {
+      this.game.deselectEnemy();
+    } else {
+      this.clearSelectionHighlight(enemy);
+    }
     this.removeEnemyMesh(enemy);
     this.group.remove(enemy.hpBar.group);
     const idx = this.alive.indexOf(enemy);
@@ -560,6 +645,11 @@ export class EnemyManager {
 
   /** @param {object} enemy */
   remove(enemy) {
+    if (this.game.selectedEnemy === enemy) {
+      this.game.deselectEnemy();
+    } else {
+      this.clearSelectionHighlight(enemy);
+    }
     this.removeEnemyMesh(enemy);
     this.group.remove(enemy.hpBar.group);
     const idx = this.alive.indexOf(enemy);

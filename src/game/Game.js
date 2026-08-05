@@ -44,6 +44,8 @@ export class Game {
     this.placementArmed = false;
     this._placementToken = 0;
     this.selectedPlacedTower = null;
+    /** @type {object | null} */
+    this.selectedEnemy = null;
     this.paused = false;
     this.progress = loadProgress();
     this._lastRun = null;
@@ -238,7 +240,13 @@ export class Game {
   }
 
   canPanCamera() {
-    return this.state === 'playing' && !this.paused && !this.placementArmed && !this.selectedPlacedTower;
+    return (
+      this.state === 'playing'
+      && !this.paused
+      && !this.placementArmed
+      && !this.selectedPlacedTower
+      && !this.selectedEnemy
+    );
   }
 
   togglePauseMenu() {
@@ -263,6 +271,7 @@ export class Game {
     if (this.paused) {
       this.cancelPlacement();
       this.deselectPlacedTower();
+      this.deselectEnemy();
       this.audio.pauseMusic();
     }
   }
@@ -479,6 +488,7 @@ export class Game {
       return;
     }
     this.deselectPlacedTower();
+    this.deselectEnemy();
     this.selectedTowerId = id;
     this.ui.setSelectedTower(id);
     this.audio.uiClick();
@@ -519,6 +529,7 @@ export class Game {
     if (this.placementArmed) {
       this.cancelPlacement();
     }
+    this.deselectEnemy();
     this.selectedPlacedTower = tower;
     this.towers.setSelectionHighlight(tower);
     this.towers.showRangeRing(tower);
@@ -532,6 +543,26 @@ export class Game {
     this.towers.setSelectionHighlight(null);
     this.towers.hideRangeRing();
     this.ui.hideTowerInspector();
+  }
+
+  /** @param {object} enemy */
+  selectEnemy(enemy) {
+    if (!enemy?.alive) return;
+    if (this.placementArmed) {
+      this.cancelPlacement();
+    }
+    this.deselectPlacedTower();
+    this.selectedEnemy = enemy;
+    this.enemies.setSelectionHighlight(enemy);
+    this.ui.showEnemyInspector(enemy);
+    this.audio.uiClick();
+  }
+
+  deselectEnemy() {
+    if (!this.selectedEnemy) return;
+    this.enemies.clearSelectionHighlight(this.selectedEnemy);
+    this.selectedEnemy = null;
+    this.ui.hideEnemyInspector();
   }
 
   async tryUpgradeSelectedTower() {
@@ -618,14 +649,23 @@ export class Game {
   /**
    * @param {number} gx
    * @param {number} gz
+   * @param {THREE.Raycaster} [raycaster]
    */
-  trySelectPlacedTower(gx, gz) {
+  trySelectPlacedTower(gx, gz, raycaster) {
     const tower = this.towers.pickAt(gx, gz);
     if (tower) {
       this.selectPlacedTower(tower);
       return;
     }
+    if (raycaster) {
+      const enemy = this.enemies.pickWithRaycaster(raycaster);
+      if (enemy) {
+        this.selectEnemy(enemy);
+        return;
+      }
+    }
     this.deselectPlacedTower();
+    this.deselectEnemy();
   }
 
   tryStartWave() {
@@ -849,6 +889,7 @@ export class Game {
 
   resetMatch() {
     this.deselectPlacedTower();
+    this.deselectEnemy();
     this.cancelPlacement();
     this.towers.hideRangeRing();
     for (const t of [...this.towers.towers]) {
@@ -875,6 +916,9 @@ export class Game {
     if (this.selectedPlacedTower) {
       this.ui.updateTowerInspector(this.selectedPlacedTower);
     }
+    if (this.selectedEnemy) {
+      this.ui.updateEnemyInspector(this.selectedEnemy);
+    }
   }
 
   onResize() {
@@ -895,6 +939,11 @@ export class Game {
       this.effects.update(dt);
       this.crystalPickups.update(dt);
       this.map.update(dt);
+      if (this.selectedEnemy?.alive) {
+        this.ui.updateEnemyInspector(this.selectedEnemy);
+      } else if (this.selectedEnemy) {
+        this.deselectEnemy();
+      }
     }
 
     if (this.state !== 'title') {

@@ -106,6 +106,10 @@ export class UI {
       btnRepair: document.getElementById('btn-repair'),
       btnSell: document.getElementById('btn-sell'),
       btnInspectorClose: document.getElementById('btn-inspector-close'),
+      enemyInspector: document.getElementById('enemy-inspector'),
+      enemyInspectorName: document.getElementById('enemy-inspector-name'),
+      enemyInspectorStats: document.getElementById('enemy-inspector-stats'),
+      btnEnemyInspectorClose: document.getElementById('btn-enemy-inspector-close'),
       announcement: document.getElementById('wave-announcement'),
       announceTitle: document.getElementById('wave-announce-title'),
       announceSubtitle: document.getElementById('wave-announce-subtitle'),
@@ -132,6 +136,7 @@ export class UI {
     this.els.btnRepairAll.addEventListener('click', () => game.tryRepairAllTowers());
     this.els.btnNextWave?.addEventListener('click', () => game.tryStartWave());
     this.els.btnInspectorClose.addEventListener('click', () => game.deselectPlacedTower());
+    this.els.btnEnemyInspectorClose?.addEventListener('click', () => game.deselectEnemy());
     document.getElementById('btn-leaderboard-close')?.addEventListener('click', () => game.closeLeaderboard());
     this.buildTowerPanel(towerDefs);
     this.buildMapSelect();
@@ -246,6 +251,7 @@ export class UI {
     this.els.hud.classList.add('hidden');
     this.els.towerToolbar.classList.add('hidden');
     this.els.inspector.classList.add('hidden');
+    this.els.enemyInspector?.classList.add('hidden');
     this.els.result.classList.add('hidden');
     this.els.leaderboard?.classList.add('hidden');
     if (progress) this.updateMapSelect(progress);
@@ -417,6 +423,7 @@ export class UI {
     this.els.hud.classList.add('hidden');
     this.els.towerToolbar.classList.add('hidden');
     this.els.inspector.classList.add('hidden');
+    this.els.enemyInspector?.classList.add('hidden');
     this.els.result.classList.add('hidden');
     this.els.leaderboard?.classList.remove('hidden');
 
@@ -648,6 +655,7 @@ export class UI {
 
   /** @param {object} tower */
   showTowerInspector(tower) {
+    this.els.enemyInspector?.classList.add('hidden');
     this.els.inspector.classList.remove('hidden');
     this.updateTowerInspector(tower);
     this.els.hint.textContent =
@@ -656,10 +664,54 @@ export class UI {
 
   hideTowerInspector() {
     this.els.inspector.classList.add('hidden');
-    if (!this.game.placementArmed) {
+    if (!this.game.placementArmed && !this.game.selectedEnemy) {
       this.els.hint.textContent =
-        'Click a tower to inspect · 1–4 arm build · LMB place · RMB cancel · drag to pan · Space wave';
+        'Click tower or UFO to inspect · 1–4 arm build · LMB place · RMB cancel · drag to pan · Space wave';
     }
+  }
+
+  /** @param {object} enemy */
+  showEnemyInspector(enemy) {
+    this.els.inspector.classList.add('hidden');
+    this.els.enemyInspector?.classList.remove('hidden');
+    this.updateEnemyInspector(enemy);
+    this.els.hint.textContent =
+      'UFO selected — stats update live · click empty ground or RMB to close';
+  }
+
+  hideEnemyInspector() {
+    this.els.enemyInspector?.classList.add('hidden');
+    if (!this.game.placementArmed && !this.game.selectedPlacedTower) {
+      this.els.hint.textContent =
+        'Click tower or UFO to inspect · 1–4 arm build · LMB place · RMB cancel · drag to pan · Space wave';
+    }
+  }
+
+  /** @param {object} enemy */
+  updateEnemyInspector(enemy) {
+    if (!this.els.enemyInspectorName || !this.els.enemyInspectorStats) return;
+    const def = enemy.def;
+    const name = def?.name ?? 'Unknown UFO';
+    const bossTag = enemy.isBoss ? ' · BOSS' : '';
+    this.els.enemyInspectorName.textContent = `${name}${bossTag}`;
+
+    const speed = this.game.enemies.getMoveSpeed(enemy);
+    const baseSpeed = enemy.speed ?? def?.speed ?? 0;
+    const slowed = enemy.slowTimer > 0 && speed < baseSpeed - 0.001;
+    const defensePct = Math.round((enemy.defense ?? 0) * 100);
+    const lines = [
+      `HP ${Math.max(0, Math.ceil(enemy.hp))}/${Math.ceil(enemy.maxHp)} · Speed ${speed.toFixed(2)}${slowed ? ' (slowed)' : ''}`,
+      `Defense ${defensePct}% · Leak ${def?.leakDamage ?? 1} · Wave ${enemy.waveNumber ?? 1}`,
+      `Reward ${enemy.reward ?? def?.reward ?? 0} cr · Drop ${enemy.crystalDrop ?? def?.crystalDrop ?? 0} crystals`,
+    ];
+    if (enemy.canAttack && enemy.attackDamage > 0) {
+      lines.push(
+        `Returns fire · ${Math.round(enemy.attackDamage)} dmg · range ${enemy.attackRange.toFixed(1)} · rate ${enemy.attackRate.toFixed(2)}/s`,
+      );
+    } else {
+      lines.push('Does not return fire this wave');
+    }
+    this.els.enemyInspectorStats.textContent = lines.join('\n');
   }
 
   /** @param {object} tower */

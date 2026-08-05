@@ -600,6 +600,33 @@ html, body {
 
 .tower-inspector.hidden { display: none; }
 
+.enemy-inspector {
+  position: absolute;
+  right: 1rem;
+  bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+  left: auto;
+  z-index: 11;
+  min-width: 260px;
+  max-width: 320px;
+  padding: 0.75rem 0.85rem;
+  background: var(--panel);
+  border: 1px solid rgba(255, 102, 136, 0.4);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+
+.enemy-inspector.hidden { display: none; }
+
+.enemy-inspector-name {
+  color: #ffb0c0;
+}
+
+.enemy-inspector .inspector-stats {
+  white-space: pre-line;
+  line-height: 1.45;
+}
+
 .inspector-header {
   display: flex;
   align-items: center;
