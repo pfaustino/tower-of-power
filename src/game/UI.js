@@ -711,6 +711,10 @@ export class UI {
         text = `Wave ${nextWave} active`;
         title = 'Finish the current wave before starting the next one';
       }
+    } else if (this.game.onboarding.blocksStartWave()) {
+      text = `Start Wave ${nextWave}`;
+      disabled = true;
+      title = 'Finish the tutorial step first — place a Needle Spire';
     } else {
       text = `Start Wave ${nextWave}`;
       disabled = false;

@@ -682,8 +682,9 @@ export class Game {
       this.ui.setMessage('Game paused — press Esc to resume');
       return false;
     }
-    if (this.onboarding.active && this.onboarding.step !== 'start_wave') {
+    if (this.onboarding.blocksStartWave()) {
       this.onboarding.syncUi();
+      this.ui.setMessage('Tutorial: place a Needle Spire before starting the wave.');
       return false;
     }
     if (this.waves.startNextWave()) {
@@ -770,8 +771,8 @@ export class Game {
     await this.towers.place(def, gx, gz);
     this.crystals -= def.cost;
     this.audio.placeTower();
-    this.refreshHud();
     const handledByOnboarding = this.onboarding.onTowerPlaced(def.id);
+    this.refreshHud();
     if (handledByOnboarding) {
       this.cancelPlacement();
     } else {

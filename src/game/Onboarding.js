@@ -82,11 +82,23 @@ export class Onboarding {
     this.game.ui.clearOnboarding();
   }
 
+  /** @returns {boolean} */
+  hasNeedleSpire() {
+    return this.game.towers.towers.some((t) => t.def.id === ONBOARDING_TOWER_ID);
+  }
+
   /** @param {number} completedWaveIndex index after wave completes (1 after wave 1, etc.) */
   onWaveCleared(completedWaveIndex) {
     if (!this.active || completedWaveIndex >= ONBOARDING_WAVES) return;
     this.cycle = completedWaveIndex;
-    this.step = 'place_tower';
+    // Don't force another placement if a Needle Spire is already on the board —
+    // otherwise Start Wave looks ready but silently refuses the click.
+    this.step = this.hasNeedleSpire() ? 'start_wave' : 'place_tower';
     this.syncUi();
+  }
+
+  /** @returns {boolean} True when Start Wave should be blocked by the tutorial. */
+  blocksStartWave() {
+    return this.active && this.step !== 'start_wave';
   }
 }
