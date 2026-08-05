@@ -1129,3 +1129,74 @@ html, body {
 .leaderboard-actions {
   margin-top: 0.85rem;
 }
+
+/* Compact tower bar for phones/tablets in landscape */
+@media (orientation: landscape) and (max-height: 520px) {
+  .tower-toolbar {
+    gap: 0.4rem;
+    padding: 0.28rem 0.55rem calc(0.28rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .tower-panel {
+    gap: 0.3rem;
+  }
+
+  .tower-btn {
+    min-width: 58px;
+    padding: 0.18rem 0.28rem 0.22rem;
+  }
+
+  .tower-preview-canvas {
+    width: 36px;
+    height: 36px;
+    margin: 0.05rem 0 0.08rem;
+  }
+
+  .tower-hotkey {
+    left: 0.2rem;
+    top: 0.15rem;
+    width: 0.95rem;
+    height: 0.95rem;
+    font-size: 0.65rem;
+  }
+
+  .tower-name {
+    font-size: 0.68rem;
+    line-height: 1.1;
+    max-width: 4.6rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tower-cost {
+    font-size: 0.65rem;
+  }
+
+  .toolbar-wave-btn,
+  .toolbar-repair-btn {
+    align-self: center;
+    min-width: 0;
+    padding: 0.35rem 0.55rem;
+    font-size: 0.72rem;
+  }
+
+  .tower-inspector,
+  .enemy-inspector {
+    bottom: calc(3.6rem + env(safe-area-inset-bottom, 0px));
+    max-width: min(280px, calc(100vw - 1.5rem));
+  }
+
+  .hud-bar {
+    gap: 0.85rem;
+    padding: 0.4rem 0.75rem;
+  }
+
+  .hud-stat span:last-child {
+    font-size: 1.05rem;
+  }
+
+  .hud-map-name span {
+    font-size: 0.9rem;
+  }
+}
