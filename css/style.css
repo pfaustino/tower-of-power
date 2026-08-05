@@ -337,7 +337,11 @@ html, body {
 }
 
 .onboarding-banner {
-  margin: 0.45rem 1rem 0;
+  position: absolute;
+  top: 4.75rem;
+  left: 1rem;
+  z-index: 12;
+  margin: 0;
   padding: 0.55rem 0.95rem;
   display: inline-block;
   max-width: min(42rem, calc(100% - 2rem));
@@ -349,6 +353,7 @@ html, body {
   border-radius: 8px;
   box-shadow: 0 0 18px rgba(255, 196, 64, 0.18);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
+  pointer-events: none;
 }
 
 .onboarding-banner.hidden {
@@ -1210,20 +1215,15 @@ html, body {
   }
 
   .onboarding-banner {
-    position: absolute;
-    left: 50%;
-    right: auto;
     top: auto;
-    bottom: calc(3.25rem + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    bottom: calc(3.35rem + env(safe-area-inset-bottom, 0px));
     transform: translateX(-50%);
-    margin: 0;
     padding: 0.3rem 0.7rem;
     max-width: min(34rem, calc(100% - 1rem));
     font-size: 0.74rem;
     font-weight: 600;
     line-height: 1.25;
     text-align: center;
-    z-index: 12;
-    pointer-events: none;
   }
 }
