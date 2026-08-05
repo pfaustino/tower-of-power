@@ -297,7 +297,7 @@ export class Game {
     this.resetMatch();
     this.closePauseMenu();
     this.state = 'title';
-    this.ui.showTitle(this.progress);
+    this.ui.showTitle(this.progress, { maps: true });
   }
 
   /** @param {number} delta */

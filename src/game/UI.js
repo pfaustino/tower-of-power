@@ -117,8 +117,12 @@ export class UI {
       message: document.getElementById('hud-message'),
       hint: document.getElementById('hud-hint'),
       title: document.getElementById('title-screen'),
+      titleHome: document.getElementById('title-home'),
+      titleMaps: document.getElementById('title-maps'),
       titleHeading: document.getElementById('title-heading'),
       mapSelectGrid: document.getElementById('map-select-grid'),
+      btnMaps: document.getElementById('btn-maps'),
+      btnMapsBack: document.getElementById('btn-maps-back'),
       result: document.getElementById('result-screen'),
       resultTitle: document.getElementById('result-title'),
       resultMessage: document.getElementById('result-message'),
@@ -158,6 +162,8 @@ export class UI {
   bind(game, towerDefs) {
     this.game = game;
     this.els.btnLeaderboard?.addEventListener('click', () => game.showLeaderboard());
+    this.els.btnMaps?.addEventListener('click', () => this.showMapSelect());
+    this.els.btnMapsBack?.addEventListener('click', () => this.showTitleHome());
     this.els.btnResult.addEventListener('click', () => game.dismissResult());
     this.els.btnUpgrade.addEventListener('click', () => game.tryUpgradeSelectedTower());
     this.els.btnRepair.addEventListener('click', () => game.tryRepairSelectedTower());
@@ -271,8 +277,11 @@ export class UI {
     this.els.title.style.backgroundImage = `url('${url}')`;
   }
 
-  /** @param {import('../lib/progress.js').ReturnType<typeof import('../lib/progress.js').loadProgress>} [progress] */
-  showTitle(progress = this.game?.progress) {
+  /**
+   * @param {import('../lib/progress.js').ReturnType<typeof import('../lib/progress.js').loadProgress>} [progress]
+   * @param {{ maps?: boolean }} [options]
+   */
+  showTitle(progress = this.game?.progress, options = {}) {
     this.hideWaveAnnouncement();
     this.clearOnboarding();
     document.getElementById('game-root')?.classList.add('title-active');
@@ -284,7 +293,21 @@ export class UI {
     this.els.result.classList.add('hidden');
     this.els.leaderboard?.classList.add('hidden');
     if (progress) this.updateMapSelect(progress);
+    if (options.maps) this.showMapSelect();
+    else this.showTitleHome();
     setTowerPreviewsActive(true);
+  }
+
+  showTitleHome() {
+    this.els.titleHome?.classList.remove('hidden');
+    this.els.titleMaps?.classList.add('hidden');
+    if (this.els.titleHeading) this.els.titleHeading.textContent = 'Tower of Power';
+  }
+
+  showMapSelect() {
+    this.els.titleHome?.classList.add('hidden');
+    this.els.titleMaps?.classList.remove('hidden');
+    if (this.game?.progress) this.updateMapSelect(this.game.progress);
   }
 
   /** @param {string} [mapName] */

@@ -58,14 +58,22 @@
     </div>
 
     <div id="title-screen" class="overlay title-screen">
-      <div class="title-screen-footer title-screen-footer--maps">
+      <div id="title-home" class="title-screen-footer">
         <h1 id="title-heading" class="title-heading">Tower of Power</h1>
-        <p class="title-tagline">Choose a battlefield. Clear wave 10 to unlock the next map.</p>
-        <div id="map-select-grid" class="map-select-grid" aria-label="Map selection"></div>
+        <p class="title-tagline">Defend the crystal outpost from escalating UFO waves.</p>
         <div class="title-actions">
+          <button type="button" id="btn-maps" class="btn primary">Maps</button>
           <button type="button" id="btn-leaderboard" class="btn">Leaderboard</button>
         </div>
         <p class="title-hint">Esc for settings · Kenney Tower Defense Kit · Three.js</p>
+      </div>
+      <div id="title-maps" class="title-screen-footer title-screen-footer--maps hidden">
+        <h2 class="title-heading title-heading--maps">Choose a Map</h2>
+        <p class="title-tagline">Clear wave 10 to unlock the next battlefield.</p>
+        <div id="map-select-grid" class="map-select-grid" aria-label="Map selection"></div>
+        <div class="title-actions">
+          <button type="button" id="btn-maps-back" class="btn">Back</button>
+        </div>
       </div>
     </div>
 

@@ -79,7 +79,7 @@ html, body {
 .title-screen-footer {
   position: relative;
   z-index: 1;
-  width: min(480px, 100%);
+  width: min(420px, 100%);
   padding: 1.25rem 1.5rem 1.1rem;
   text-align: center;
   background: rgba(8, 14, 26, 0.72);
@@ -102,6 +102,10 @@ html, body {
   font-weight: 700;
   color: #fff;
   letter-spacing: 0.04em;
+}
+
+.title-heading--maps {
+  font-size: 1.35rem;
 }
 
 .map-select-grid {
