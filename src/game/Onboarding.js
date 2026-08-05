@@ -52,28 +52,28 @@ export class Onboarding {
     if (this.step === 'place_tower') {
       this.game.ui.setOnboarding({
         step: this.step,
-        message: `Tutorial (${waveNum}/${ONBOARDING_WAVES}): Click Needle Spire, then place it on a build tile near the path.`,
+        message: `Tutorial (${waveNum}/${ONBOARDING_WAVES}): Place a tower (Needle Spire is a solid first pick), or Start Wave whenever you're ready.`,
       });
       return;
     }
 
     this.game.ui.setOnboarding({
       step: this.step,
-      message: `Tutorial (${waveNum}/${ONBOARDING_WAVES}): Click Start Wave when you're ready.`,
+      message: `Tutorial (${waveNum}/${ONBOARDING_WAVES}): Click Start Wave when you're ready — or keep building first.`,
     });
   }
 
-  /** @param {string} towerId */
-  onTowerPlaced(towerId) {
+  /** @param {string} _towerId */
+  onTowerPlaced(_towerId) {
     if (!this.active || this.step !== 'place_tower') return false;
-    if (towerId !== ONBOARDING_TOWER_ID) return false;
     this.step = 'start_wave';
     this.syncUi();
     return true;
   }
 
   onWaveStarted() {
-    if (!this.active || this.step !== 'start_wave') return;
+    if (!this.active) return;
+    if (this.step !== 'place_tower' && this.step !== 'start_wave') return;
     if (this.cycle >= ONBOARDING_WAVES - 1) {
       this.complete();
       return;
@@ -82,23 +82,11 @@ export class Onboarding {
     this.game.ui.clearOnboarding();
   }
 
-  /** @returns {boolean} */
-  hasNeedleSpire() {
-    return this.game.towers.towers.some((t) => t.def.id === ONBOARDING_TOWER_ID);
-  }
-
   /** @param {number} completedWaveIndex index after wave completes (1 after wave 1, etc.) */
   onWaveCleared(completedWaveIndex) {
     if (!this.active || completedWaveIndex >= ONBOARDING_WAVES) return;
     this.cycle = completedWaveIndex;
-    // Don't force another placement if a Needle Spire is already on the board —
-    // otherwise Start Wave looks ready but silently refuses the click.
-    this.step = this.hasNeedleSpire() ? 'start_wave' : 'place_tower';
+    this.step = 'start_wave';
     this.syncUi();
-  }
-
-  /** @returns {boolean} True when Start Wave should be blocked by the tutorial. */
-  blocksStartWave() {
-    return this.active && this.step !== 'start_wave';
   }
 }

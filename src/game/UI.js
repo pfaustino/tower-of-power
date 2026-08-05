@@ -348,9 +348,14 @@ export class UI {
     banner.classList.remove('hidden');
 
     for (const [id, btn] of this.towerButtons) {
+      // Suggest Needle Spire, but any tower (or starting with none) is allowed.
       btn.classList.toggle('onboarding-target', opts.step === 'place_tower' && id === 'needle-spire');
     }
-    this.els.btnNextWave?.classList.toggle('onboarding-target', opts.step === 'start_wave');
+    // Start Wave is always a valid next action during the tutorial tips.
+    this.els.btnNextWave?.classList.toggle(
+      'onboarding-target',
+      opts.step === 'place_tower' || opts.step === 'start_wave',
+    );
   }
 
   clearOnboarding() {
@@ -711,10 +716,6 @@ export class UI {
         text = `Wave ${nextWave} active`;
         title = 'Finish the current wave before starting the next one';
       }
-    } else if (this.game.onboarding.blocksStartWave()) {
-      text = `Start Wave ${nextWave}`;
-      disabled = true;
-      title = 'Finish the tutorial step first — place a Needle Spire';
     } else {
       text = `Start Wave ${nextWave}`;
       disabled = false;

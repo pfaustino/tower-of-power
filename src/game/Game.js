@@ -682,11 +682,6 @@ export class Game {
       this.ui.setMessage('Game paused — press Esc to resume');
       return false;
     }
-    if (this.onboarding.blocksStartWave()) {
-      this.onboarding.syncUi();
-      this.ui.setMessage('Tutorial: place a Needle Spire before starting the wave.');
-      return false;
-    }
     if (this.waves.startNextWave()) {
       this.onboarding.onWaveStarted();
       this.refreshHud();
