@@ -9,6 +9,7 @@ import {
 import { getBestWaves, setLeaderboardName } from '../lib/progress.js';
 import {
   getMapBestWaves,
+  getMapLastSuccessfulWave,
   getMapMeta,
   getMapNumber,
   getMapUnlockHint,
@@ -130,6 +131,7 @@ export class UI {
       towerPanel: document.getElementById('tower-panel'),
       btnRepairAll: document.getElementById('btn-repair-all'),
       btnNextWave: document.getElementById('btn-next-wave'),
+      btnToolbarMaps: document.getElementById('btn-toolbar-maps'),
       btnLeaderboard: document.getElementById('btn-leaderboard'),
       btnResult: document.getElementById('btn-result'),
       inspector: document.getElementById('tower-inspector'),
@@ -170,6 +172,10 @@ export class UI {
     this.els.btnSell.addEventListener('click', () => game.trySellSelectedTower());
     this.els.btnRepairAll.addEventListener('click', () => game.tryRepairAllTowers());
     this.els.btnNextWave?.addEventListener('click', () => game.tryStartWave());
+    this.els.btnToolbarMaps?.addEventListener('click', () => {
+      if (this.els.btnToolbarMaps?.disabled) return;
+      game.quitToMapSelect();
+    });
     this.els.btnInspectorClose.addEventListener('click', () => game.deselectPlacedTower());
     this.els.btnEnemyInspectorClose?.addEventListener('click', () => game.deselectEnemy());
     document.getElementById('btn-leaderboard-close')?.addEventListener('click', () => game.closeLeaderboard());
@@ -181,51 +187,76 @@ export class UI {
     const grid = this.els.mapSelectGrid;
     if (!grid) return;
     grid.innerHTML = '';
-    this.mapButtons = new Map();
+    this.mapCards = new Map();
 
     MAP_LIST.forEach((map, index) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'map-select-btn';
-      btn.dataset.map = map.id;
-      btn.innerHTML = `
+      const card = document.createElement('div');
+      card.className = 'map-select-card';
+      card.dataset.map = map.id;
+      card.innerHTML = `
         <span class="map-select-order">${index + 1}</span>
         <span class="map-select-name">${map.name}</span>
         <span class="map-select-blurb">${map.blurb}</span>
         <span class="map-select-meta"></span>
+        <div class="map-select-actions">
+          <button type="button" class="map-select-continue hidden">Continue</button>
+          <button type="button" class="map-select-new">Play</button>
+        </div>
       `;
-      btn.addEventListener('click', () => {
-        if (btn.disabled) return;
-        this.game.startGame(map.id);
+      const continueBtn = card.querySelector('.map-select-continue');
+      const newBtn = card.querySelector('.map-select-new');
+      continueBtn?.addEventListener('click', () => {
+        if (card.classList.contains('is-locked')) return;
+        const wave = Number(continueBtn.dataset.wave) || 1;
+        this.game.startGame(map.id, { startWave: wave });
       });
-      grid.appendChild(btn);
-      this.mapButtons.set(map.id, btn);
+      newBtn?.addEventListener('click', () => {
+        if (card.classList.contains('is-locked')) return;
+        this.game.startGame(map.id, { startWave: 1 });
+      });
+      grid.appendChild(card);
+      this.mapCards.set(map.id, card);
     });
   }
 
   /** @param {import('../lib/progress.js').ReturnType<typeof import('../lib/progress.js').loadProgress>} progress */
   updateMapSelect(progress) {
-    if (!this.mapButtons) return;
+    if (!this.mapCards) return;
     for (const [index, map] of MAP_LIST.entries()) {
-      const btn = this.mapButtons.get(map.id);
-      if (!btn) continue;
+      const card = this.mapCards.get(map.id);
+      if (!card) continue;
       const unlocked = isMapUnlocked(progress, index);
       const best = getMapBestWaves(progress, map.id);
-      const meta = btn.querySelector('.map-select-meta');
-      btn.classList.toggle('is-locked', !unlocked);
-      btn.disabled = !unlocked;
+      const last = getMapLastSuccessfulWave(progress, map.id);
+      const meta = card.querySelector('.map-select-meta');
+      const continueBtn = card.querySelector('.map-select-continue');
+      const newBtn = card.querySelector('.map-select-new');
+      card.classList.toggle('is-locked', !unlocked);
+      if (continueBtn instanceof HTMLButtonElement) {
+        continueBtn.disabled = !unlocked;
+        const canContinue = unlocked && last > 0;
+        continueBtn.classList.toggle('hidden', !canContinue);
+        continueBtn.dataset.wave = String(last);
+        continueBtn.textContent = canContinue ? `Continue · Wave ${last}` : 'Continue';
+      }
+      if (newBtn instanceof HTMLButtonElement) {
+        newBtn.disabled = !unlocked;
+        newBtn.textContent = unlocked && last > 0 ? 'New Run' : 'Play';
+      }
       if (meta) {
         if (!unlocked) {
           meta.textContent = getMapUnlockHint(progress, map.id);
         } else if (best >= UNLOCK_WAVE_REQUIREMENT) {
-          meta.textContent = `Best: ${best} waves · Unlocked next map`;
+          meta.textContent = last > 0
+            ? `Best: ${best} · Last clear: wave ${last}`
+            : `Best: ${best} waves · Unlocked next map`;
         } else if (best > 0) {
-          meta.textContent = `Best: ${best} waves · Reach wave ${UNLOCK_WAVE_REQUIREMENT} to unlock next`;
+          meta.textContent = `Best: ${best} · Reach wave ${UNLOCK_WAVE_REQUIREMENT} to unlock next`;
         } else {
           meta.textContent = `Reach wave ${UNLOCK_WAVE_REQUIREMENT} to unlock the next map`;
         }
       }
-      btn.title = unlocked ? map.blurb : getMapUnlockHint(progress, map.id);
+      card.title = unlocked ? map.blurb : getMapUnlockHint(progress, map.id);
     }
   }
 
@@ -723,12 +754,27 @@ export class UI {
     }
 
     const key = `${text}\0${disabled}\0${title}`;
-    if (this._nextWaveBtnKey === key) return;
-    this._nextWaveBtnKey = key;
+    if (this._nextWaveBtnKey !== key) {
+      this._nextWaveBtnKey = key;
+      btn.textContent = text;
+      btn.disabled = disabled;
+      btn.title = title;
+    }
 
-    btn.textContent = text;
-    btn.disabled = disabled;
-    btn.title = title;
+    this.updateToolbarMapsButton();
+  }
+
+  /** ← Maps is only available between waves. */
+  updateToolbarMapsButton() {
+    const btn = this.els.btnToolbarMaps;
+    if (!btn) return;
+    const betweenWaves = this.game.state === 'playing'
+      && !this.game.waves.active
+      && !this.game.waves.isComplete;
+    btn.disabled = !betweenWaves;
+    btn.title = betweenWaves
+      ? 'Return to map select (saves last successful wave to the leaderboard)'
+      : 'Available between waves';
   }
 
   /** @param {object} tower */

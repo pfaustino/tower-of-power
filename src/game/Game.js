@@ -289,7 +289,27 @@ export class Game {
 
   quitToMapSelect() {
     if (this.state !== 'playing') return;
-    this._saveMapProgress(this.waves.waveIndex);
+    const successfulWaves = this.waves.waveIndex;
+    this._saveMapProgress(successfulWaves);
+    // Leaderboard uses last successful wave only (not an in-progress fail).
+    if (successfulWaves >= 1) {
+      const run = {
+        waves: successfulWaves,
+        crystals: Math.floor(this.crystals),
+        difficulty: this.settings.difficulty,
+        victory: false,
+        outpostHp: Math.max(0, this.lives),
+        at: Date.now(),
+        mapId: this.currentMapId,
+        map: getMapNumber(this.currentMapId),
+      };
+      this.progress = recordRun(this.progress, run);
+      saveProgress(this.progress);
+      this._lastRun = run;
+      if (this.progress.leaderboardName?.trim()) {
+        trySubmitGlobalRun(this.progress, run);
+      }
+    }
     if (this.onboarding.active) {
       this.onboarding.active = false;
     }
@@ -375,7 +395,7 @@ export class Game {
     this.fitCameraToBoard();
   }
 
-  /** @param {number} waves */
+  /** @param {number} waves Successful waves cleared */
   _saveMapProgress(waves) {
     const next = updateMapBestWaves(this.progress, this.currentMapId, waves);
     if (next !== this.progress) {
@@ -440,7 +460,12 @@ export class Game {
     this.ui.showTitle(this.progress);
   }
 
-  async startGame(mapId = this.currentMapId, { ignoreUnlock = false } = {}) {
+  /**
+   * @param {string} [mapId]
+   * @param {{ ignoreUnlock?: boolean, startWave?: number }} [options]
+   *   startWave — 1-based wave to redo (continue). Player rebuilds, then starts that wave.
+   */
+  async startGame(mapId = this.currentMapId, { ignoreUnlock = false, startWave = 1 } = {}) {
     if (!ignoreUnlock && !isMapIdUnlocked(this.progress, mapId)) {
       this.ui.showTitle(this.progress);
       return;
@@ -457,18 +482,27 @@ export class Game {
     this.lives = this.mapData.startLives;
     this._lastRun = null;
     this.waves.setWaves(generateWaves(wavesConfig.totalWaves ?? 100));
+    const total = this.waves.waves.length;
+    const wave = Math.max(1, Math.min(Math.floor(startWave) || 1, total));
+    if (wave > 1) {
+      this.waves.jumpTo(wave);
+    }
     this.fitCameraToBoard();
     this.state = 'playing';
     this.ui.showPlaying(formatMapHudTitle(mapId));
-    if (this.onboarding.shouldRun()) {
+    if (this.onboarding.shouldRun() && wave <= 1) {
       this.cancelPlacement();
       this.onboarding.begin();
     } else {
       this.selectTower(this.selectedTowerId);
-      this.ui.setMessage('Pick a tower (1–4), move cursor, LMB to place · RMB cancels');
+      this.ui.setMessage(
+        wave > 1
+          ? `Continue: rebuild for wave ${wave}, then Start Wave (or Space).`
+          : 'Pick a tower (1–4), move cursor, LMB to place · RMB cancels',
+      );
     }
     this.refreshHud();
-    this.ui.setWave(1, this.waves.waves.length);
+    this.ui.setWave(wave, total);
   }
 
   /**

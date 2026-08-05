@@ -122,6 +122,7 @@ html, body {
   }
 }
 
+.map-select-card,
 .map-select-btn {
   display: flex;
   flex-direction: column;
@@ -132,21 +133,70 @@ html, body {
   border-radius: 10px;
   background: rgba(8, 16, 28, 0.72);
   color: var(--text);
-  cursor: pointer;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
+.map-select-btn {
+  cursor: pointer;
+}
+
+.map-select-card:hover:not(.is-locked),
 .map-select-btn:hover:not(:disabled) {
   border-color: rgba(92, 225, 255, 0.65);
   box-shadow: 0 0 16px rgba(92, 225, 255, 0.12);
   transform: translateY(-1px);
 }
 
+.map-select-card.is-locked,
 .map-select-btn.is-locked,
 .map-select-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
   border-color: rgba(255, 255, 255, 0.12);
+}
+
+.map-select-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.map-select-continue,
+.map-select-new {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.35rem 0.45rem;
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.map-select-continue {
+  border: 1px solid rgba(92, 225, 255, 0.55);
+  background: rgba(92, 225, 255, 0.16);
+  color: #d8fbff;
+}
+
+.map-select-new {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.map-select-continue:hover:not(:disabled),
+.map-select-new:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+.map-select-continue:disabled,
+.map-select-new:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .map-select-order {
@@ -512,6 +562,34 @@ html, body {
   opacity: 1;
   visibility: visible;
   transform: translateX(-50%) translateY(0);
+}
+
+.toolbar-maps-btn {
+  align-self: center;
+  min-width: 88px;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #d8e2f0;
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  pointer-events: auto;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.toolbar-maps-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.toolbar-maps-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .toolbar-wave-btn {
@@ -1174,6 +1252,7 @@ html, body {
     line-height: 1.1;
   }
 
+  .toolbar-maps-btn,
   .toolbar-wave-btn,
   .toolbar-repair-btn {
     align-self: center;

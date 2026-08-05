@@ -73,11 +73,24 @@ export function getNextMapMeta(mapId) {
 }
 
 /**
- * @param {{ mapProgress?: Record<string, { bestWaves?: number }> }} progress
+ * @param {{ mapProgress?: Record<string, { bestWaves?: number, lastSuccessfulWave?: number }> }} progress
  * @param {string} mapId
  */
 export function getMapBestWaves(progress, mapId) {
   return Math.max(0, Math.floor(progress.mapProgress?.[mapId]?.bestWaves ?? 0));
+}
+
+/**
+ * Most recently cleared wave on a map (continue checkpoint).
+ * @param {{ mapProgress?: Record<string, { bestWaves?: number, lastSuccessfulWave?: number }> }} progress
+ * @param {string} mapId
+ */
+export function getMapLastSuccessfulWave(progress, mapId) {
+  const entry = progress.mapProgress?.[mapId];
+  const last = Math.max(0, Math.floor(entry?.lastSuccessfulWave ?? 0));
+  if (last > 0) return last;
+  // Older saves only tracked best — treat that as the continue point.
+  return getMapBestWaves(progress, mapId);
 }
 
 /**
@@ -102,19 +115,25 @@ export function isMapIdUnlocked(progress, mapId) {
 }
 
 /**
- * @param {{ mapProgress?: Record<string, { bestWaves?: number }> }} progress
+ * Updates best-waves high score and last-successful-wave checkpoint.
+ * @param {{ mapProgress?: Record<string, { bestWaves?: number, lastSuccessfulWave?: number }> }} progress
  * @param {string} mapId
- * @param {number} waves
+ * @param {number} waves Successful waves cleared (0 leaves the continue checkpoint unchanged)
  */
 export function updateMapBestWaves(progress, mapId, waves) {
-  const best = Math.max(0, Math.floor(waves));
-  const prev = getMapBestWaves(progress, mapId);
-  if (best <= prev) return progress;
+  const cleared = Math.max(0, Math.floor(waves));
+  const prev = progress.mapProgress?.[mapId] ?? {};
+  const prevBest = Math.max(0, Math.floor(prev.bestWaves ?? 0));
+  const prevLast = Math.max(0, Math.floor(prev.lastSuccessfulWave ?? 0));
+  const bestWaves = Math.max(prevBest, cleared);
+  // Never move the continue checkpoint backward (e.g. quit before starting a continue).
+  const lastSuccessfulWave = cleared > 0 ? Math.max(prevLast, cleared) : prevLast;
+  if (bestWaves === prevBest && lastSuccessfulWave === prevLast) return progress;
   return {
     ...progress,
     mapProgress: {
       ...(progress.mapProgress ?? {}),
-      [mapId]: { bestWaves: best },
+      [mapId]: { bestWaves, lastSuccessfulWave },
     },
   };
 }

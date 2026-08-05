@@ -4,7 +4,9 @@ const MAX_NAME_LEN = 24;
 
 /** @typedef {{ waves: number, crystals: number, difficulty: string, victory: boolean, outpostHp: number, at: number, mapId?: string, map?: number }} RunRecord */
 
-/** @returns {{ leaderboardName: string, runs: RunRecord[], onboardingComplete: boolean, mapProgress: Record<string, { bestWaves: number }> }} */
+/** @typedef {{ bestWaves: number, lastSuccessfulWave: number }} MapProgressEntry */
+
+/** @returns {{ leaderboardName: string, runs: RunRecord[], onboardingComplete: boolean, mapProgress: Record<string, MapProgressEntry> }} */
 export function loadProgress() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -12,12 +14,21 @@ export function loadProgress() {
       return { leaderboardName: '', runs: [], onboardingComplete: false, mapProgress: {} };
     }
     const parsed = JSON.parse(raw);
-    /** @type {Record<string, { bestWaves: number }>} */
+    /** @type {Record<string, MapProgressEntry>} */
     const mapProgress = {};
     if (parsed.mapProgress && typeof parsed.mapProgress === 'object') {
       for (const [id, entry] of Object.entries(parsed.mapProgress)) {
         const bestWaves = Math.max(0, Math.floor(Number(entry?.bestWaves) || 0));
-        if (bestWaves > 0) mapProgress[id] = { bestWaves };
+        const lastSuccessfulWave = Math.max(
+          0,
+          Math.floor(Number(entry?.lastSuccessfulWave) || 0),
+        );
+        if (bestWaves > 0 || lastSuccessfulWave > 0) {
+          mapProgress[id] = {
+            bestWaves: Math.max(bestWaves, lastSuccessfulWave),
+            lastSuccessfulWave: lastSuccessfulWave > 0 ? lastSuccessfulWave : bestWaves,
+          };
+        }
       }
     }
     return {
@@ -31,7 +42,7 @@ export function loadProgress() {
   }
 }
 
-/** @param {{ leaderboardName: string, runs: RunRecord[], onboardingComplete?: boolean, mapProgress?: Record<string, { bestWaves: number }> }} data */
+/** @param {{ leaderboardName: string, runs: RunRecord[], onboardingComplete?: boolean, mapProgress?: Record<string, MapProgressEntry> }} data */
 export function saveProgress(data) {
   localStorage.setItem(
     STORAGE_KEY,
