@@ -1196,9 +1196,34 @@ html, body {
     font-size: 0.85rem;
   }
 
-  .hud-hint,
+  /* Keep board clear: slim top message, tutorial sits above the toolbar */
+  .hud-message {
+    margin: 0.25rem 0.5rem 0;
+    padding: 0.25rem 0.55rem;
+    font-size: 0.72rem;
+    max-width: min(28rem, calc(100% - 1rem));
+    min-height: 0;
+  }
+
+  .hud-hint {
+    display: none;
+  }
+
   .onboarding-banner {
-    font-size: 0.78rem;
-    margin-top: 0.35rem;
+    position: absolute;
+    left: 50%;
+    right: auto;
+    top: auto;
+    bottom: calc(3.25rem + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    margin: 0;
+    padding: 0.3rem 0.7rem;
+    max-width: min(34rem, calc(100% - 1rem));
+    font-size: 0.74rem;
+    font-weight: 600;
+    line-height: 1.25;
+    text-align: center;
+    z-index: 12;
+    pointer-events: none;
   }
 }
