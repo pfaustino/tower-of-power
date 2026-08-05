@@ -4,30 +4,49 @@ const MAX_NAME_LEN = 24;
 
 /** @typedef {{ waves: number, crystals: number, difficulty: string, victory: boolean, outpostHp: number, at: number }} RunRecord */
 
-/** @returns {{ leaderboardName: string, runs: RunRecord[] }} */
+/** @returns {{ leaderboardName: string, runs: RunRecord[], onboardingComplete: boolean, mapProgress: Record<string, { bestWaves: number }> }} */
 export function loadProgress() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { leaderboardName: '', runs: [] };
+    if (!raw) {
+      return { leaderboardName: '', runs: [], onboardingComplete: false, mapProgress: {} };
+    }
     const parsed = JSON.parse(raw);
+    /** @type {Record<string, { bestWaves: number }>} */
+    const mapProgress = {};
+    if (parsed.mapProgress && typeof parsed.mapProgress === 'object') {
+      for (const [id, entry] of Object.entries(parsed.mapProgress)) {
+        const bestWaves = Math.max(0, Math.floor(Number(entry?.bestWaves) || 0));
+        if (bestWaves > 0) mapProgress[id] = { bestWaves };
+      }
+    }
     return {
       leaderboardName: typeof parsed.leaderboardName === 'string' ? parsed.leaderboardName : '',
       runs: Array.isArray(parsed.runs) ? parsed.runs.filter(isValidRun) : [],
+      onboardingComplete: Boolean(parsed.onboardingComplete),
+      mapProgress,
     };
   } catch {
-    return { leaderboardName: '', runs: [] };
+    return { leaderboardName: '', runs: [], onboardingComplete: false, mapProgress: {} };
   }
 }
 
-/** @param {{ leaderboardName: string, runs: RunRecord[] }} data */
+/** @param {{ leaderboardName: string, runs: RunRecord[], onboardingComplete?: boolean, mapProgress?: Record<string, { bestWaves: number }> }} data */
 export function saveProgress(data) {
   localStorage.setItem(
     STORAGE_KEY,
     JSON.stringify({
       leaderboardName: data.leaderboardName ?? '',
       runs: (data.runs ?? []).slice(0, MAX_RUNS),
+      onboardingComplete: Boolean(data.onboardingComplete),
+      mapProgress: data.mapProgress ?? {},
     }),
   );
+}
+
+/** @param {{ leaderboardName: string, runs: RunRecord[], onboardingComplete?: boolean }} progress */
+export function markOnboardingComplete(progress) {
+  return { ...progress, onboardingComplete: true };
 }
 
 /**

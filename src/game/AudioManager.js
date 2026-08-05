@@ -1,5 +1,11 @@
+const BGM_TRACKS = [
+  'audio/mfcc-warrior-defense-fighting-music-335681.mp3',
+  'audio/mfcc-fighting-warrior-defense-music-354629.mp3',
+  'audio/mfcc-warrior-fighting-defense-music-323853.mp3',
+];
+
 /**
- * Procedural SFX via Web Audio (no asset files required).
+ * Procedural SFX via Web Audio; background music from public/audio MP3s.
  */
 export class AudioManager {
   constructor() {
@@ -7,12 +13,20 @@ export class AudioManager {
     this.ctx = null;
     this.unlocked = false;
     this.sfxVolume = 0.55;
+    this.musicVolume = 0.45;
     this._lastShotAt = 0;
+    this.bgm = new Audio();
+    this.bgm.preload = 'auto';
+    this.bgmTrackIndex = 0;
+    this.bgmPlaying = false;
+    this.bgmPaused = false;
+    this.bgm.addEventListener('ended', () => this._playNextTrack());
   }
 
   unlock() {
     this.unlocked = true;
     this._ensureCtx();
+    this.startMusic();
   }
 
   _ensureCtx() {
@@ -223,8 +237,11 @@ export class AudioManager {
   }
 
   crystalCollect() {
-    this._tone(880, 0.05, 'sine', 0.1);
-    this._tone(1320, 0.06, 'sine', 0.08);
+    if (!this.unlocked) return;
+    const t0 = this._ensureCtx().currentTime;
+    this._scheduleTone(1318.5, t0, 0.07, 'sine', 0.12);
+    this._scheduleTone(1760, t0 + 0.055, 0.16, 'sine', 0.14);
+    this._scheduleTone(2637, t0 + 0.055, 0.1, 'triangle', 0.06);
   }
 
   leak() {
@@ -241,7 +258,54 @@ export class AudioManager {
   }
 
   /** @param {number} volume 0–1 */
-  setVolume(volume) {
+  setSfxVolume(volume) {
     this.sfxVolume = Math.min(1, Math.max(0, volume));
+  }
+
+  /** @param {number} volume 0–1 */
+  setMusicVolume(volume) {
+    this.musicVolume = Math.min(1, Math.max(0, volume));
+    this._applyBgmVolume();
+  }
+
+  _trackUrl(index) {
+    const path = BGM_TRACKS[index % BGM_TRACKS.length];
+    return `${import.meta.env.BASE_URL}${path}`;
+  }
+
+  _applyBgmVolume() {
+    this.bgm.volume = this.musicVolume;
+  }
+
+  /** @param {number} index */
+  _loadAndPlayTrack(index) {
+    this.bgmTrackIndex = index % BGM_TRACKS.length;
+    this.bgm.src = this._trackUrl(this.bgmTrackIndex);
+    this._applyBgmVolume();
+    this.bgm.play().catch(() => {});
+  }
+
+  _playNextTrack() {
+    if (!this.bgmPlaying || this.bgmPaused) return;
+    this._loadAndPlayTrack(this.bgmTrackIndex + 1);
+  }
+
+  startMusic() {
+    if (!this.unlocked || this.bgmPlaying) return;
+    this.bgmPlaying = true;
+    this.bgmPaused = false;
+    this._loadAndPlayTrack(this.bgmTrackIndex);
+  }
+
+  pauseMusic() {
+    if (!this.bgmPlaying || this.bgmPaused) return;
+    this.bgmPaused = true;
+    this.bgm.pause();
+  }
+
+  resumeMusic() {
+    if (!this.bgmPlaying || !this.bgmPaused) return;
+    this.bgmPaused = false;
+    this.bgm.play().catch(() => {});
   }
 }

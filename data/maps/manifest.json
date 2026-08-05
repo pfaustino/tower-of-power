@@ -1,0 +1,74 @@
+{
+  "maps": [
+    {
+      "id": "crystal-outpost",
+      "file": "01-crystal-outpost.json",
+      "name": "Crystal Outpost",
+      "blurb": "A simple L-shaped lane — perfect for your first defense.",
+      "order": 1
+    },
+    {
+      "id": "dust-ridge",
+      "file": "02-dust-ridge.json",
+      "name": "Dust Ridge",
+      "blurb": "Four switchbacks with 2-row build lanes — room to dig in.",
+      "order": 2
+    },
+    {
+      "id": "north-pass",
+      "file": "03-north-pass.json",
+      "name": "North Pass",
+      "blurb": "A diagonal climb with wide landings — build in the wedges.",
+      "order": 3
+    },
+    {
+      "id": "crosswind-valley",
+      "file": "04-crosswind-valley.json",
+      "name": "Crosswind Valley",
+      "blurb": "Long beats, only 1 build row between lanes — tight placement.",
+      "order": 4
+    },
+    {
+      "id": "broken-corridor",
+      "file": "05-broken-corridor.json",
+      "name": "Broken Corridor",
+      "blurb": "A spiral with 2-tile build bands between coils.",
+      "order": 5
+    },
+    {
+      "id": "shard-pocket",
+      "file": "06-shard-pocket.json",
+      "name": "Shard Pocket",
+      "blurb": "Cramped spiral — 1-tile build rings, sharp turns.",
+      "order": 6
+    },
+    {
+      "id": "wide-frontier",
+      "file": "07-wide-frontier.json",
+      "name": "Wide Frontier",
+      "blurb": "Three long lanes with 4-row build belts — fortress density.",
+      "order": 7
+    },
+    {
+      "id": "helix-run",
+      "file": "08-helix-run.json",
+      "name": "Helix Run",
+      "blurb": "Climbing shelves with 3-row build terraces.",
+      "order": 8
+    },
+    {
+      "id": "long-march",
+      "file": "09-long-march.json",
+      "name": "Long March",
+      "blurb": "Endurance switchbacks with 2-row build lanes across a vast strip.",
+      "order": 9
+    },
+    {
+      "id": "final-bastion",
+      "file": "10-final-bastion.json",
+      "name": "Final Bastion",
+      "blurb": "Rim sweep then dive — 3-row courtyards for heavy batteries.",
+      "order": 10
+    }
+  ]
+}

@@ -7,12 +7,15 @@ export class PauseMenu {
       title: document.getElementById('pause-menu-title'),
       tabs: document.querySelectorAll('.pause-tab'),
       panels: document.querySelectorAll('.pause-panel'),
-      sound: document.getElementById('setting-sound'),
-      soundVal: document.getElementById('setting-sound-val'),
+      sound: document.getElementById('setting-sfx'),
+      soundVal: document.getElementById('setting-sfx-val'),
+      music: document.getElementById('setting-music'),
+      musicVal: document.getElementById('setting-music-val'),
       light: document.getElementById('setting-light'),
       lightVal: document.getElementById('setting-light-val'),
       difficultyList: document.getElementById('difficulty-list'),
       btnResume: document.getElementById('btn-pause-resume'),
+      btnQuitMaps: document.getElementById('btn-quit-maps'),
       btnClose: document.getElementById('btn-pause-close'),
     };
     this.open = false;
@@ -51,11 +54,18 @@ export class PauseMenu {
       });
     }
 
+    this.els.music.addEventListener('input', () => {
+      const v = Number(this.els.music.value);
+      this.els.musicVal.textContent = `${Math.round(v * 100)}%`;
+      game.settings.setMusicVolume(v);
+      game.audio.setMusicVolume(v);
+    });
+
     this.els.sound.addEventListener('input', () => {
       const v = Number(this.els.sound.value);
       this.els.soundVal.textContent = `${Math.round(v * 100)}%`;
-      game.settings.setSoundVolume(v);
-      game.audio.setVolume(v);
+      game.settings.setSfxVolume(v);
+      game.audio.setSfxVolume(v);
     });
 
     this.els.light.addEventListener('input', () => {
@@ -74,6 +84,7 @@ export class PauseMenu {
     }
 
     this.els.btnResume.addEventListener('click', () => game.closePauseMenu());
+    this.els.btnQuitMaps?.addEventListener('click', () => game.quitToMapSelect());
     this.els.btnClose.addEventListener('click', () => game.closePauseMenu());
 
     game.settings.onChange(() => this.syncFromSettings());
@@ -81,9 +92,11 @@ export class PauseMenu {
   }
 
   syncFromSettings() {
-    const { soundVolume, lightLevel } = this.game.settings;
-    this.els.sound.value = String(soundVolume);
-    this.els.soundVal.textContent = `${Math.round(soundVolume * 100)}%`;
+    const { sfxVolume, musicVolume, lightLevel } = this.game.settings;
+    this.els.music.value = String(musicVolume);
+    this.els.musicVal.textContent = `${Math.round(musicVolume * 100)}%`;
+    this.els.sound.value = String(sfxVolume);
+    this.els.soundVal.textContent = `${Math.round(sfxVolume * 100)}%`;
     this.els.light.value = String(lightLevel);
     this.els.lightVal.textContent = lightLevel.toFixed(2);
     this.syncDifficulty();
@@ -113,6 +126,7 @@ export class PauseMenu {
     this.els.root.classList.remove('hidden');
     this.els.title.textContent = mode === 'playing' ? 'Paused' : 'Menu';
     this.els.btnResume.classList.toggle('hidden', mode !== 'playing');
+    this.els.btnQuitMaps?.classList.toggle('hidden', mode !== 'playing');
     this.els.btnClose.classList.toggle('hidden', mode === 'playing');
     this.setTab(this.activeTab);
   }

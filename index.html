@@ -15,11 +15,13 @@
 
     <div id="hud" class="hidden" aria-live="polite">
       <div class="hud-bar">
+        <div class="hud-map-name"><span id="hud-map-name">—</span></div>
         <div class="hud-stat"><span class="label">Crystals</span><span id="hud-crystals">0</span></div>
         <div class="hud-stat"><span class="label">Outpost HP</span><span id="hud-lives">0</span></div>
         <div class="hud-stat"><span class="label">Wave</span><span id="hud-wave">0</span></div>
       </div>
       <div id="hud-message" class="hud-message"></div>
+      <div id="onboarding-banner" class="onboarding-banner hidden" aria-live="polite"></div>
       <div id="hud-hint" class="hud-hint">Pick a tower (1–4), LMB place · RMB cancel · Start Wave or Space · Esc menu</div>
     </div>
 
@@ -48,10 +50,11 @@
     </div>
 
     <div id="title-screen" class="overlay title-screen">
-      <div class="title-screen-footer">
-        <p class="title-tagline">UFO scouts are inbound. Spend Power Crystals on towers and hold the outpost.</p>
+      <div class="title-screen-footer title-screen-footer--maps">
+        <h1 id="title-heading" class="title-heading">Tower of Power</h1>
+        <p class="title-tagline">Choose a battlefield. Clear wave 10 to unlock the next map.</p>
+        <div id="map-select-grid" class="map-select-grid" aria-label="Map selection"></div>
         <div class="title-actions">
-          <button type="button" id="btn-play" class="btn primary btn-deploy">Deploy</button>
           <button type="button" id="btn-leaderboard" class="btn">Leaderboard</button>
         </div>
         <p class="title-hint">Esc for settings · Kenney Tower Defense Kit · Three.js</p>
@@ -106,13 +109,19 @@
           <button type="button" class="pause-tab is-active" data-tab="settings">Settings</button>
           <button type="button" class="pause-tab" data-tab="difficulty">Difficulty</button>
           <button type="button" class="pause-tab" data-tab="about">About</button>
+          <button type="button" class="pause-tab" data-tab="music">Music</button>
         </nav>
 
         <div class="pause-panel" data-panel="settings">
           <label class="setting-row">
-            <span class="setting-label">Sound</span>
-            <input type="range" id="setting-sound" min="0" max="1" step="0.05" />
-            <span id="setting-sound-val" class="setting-value">55%</span>
+            <span class="setting-label">Music</span>
+            <input type="range" id="setting-music" min="0" max="1" step="0.05" />
+            <span id="setting-music-val" class="setting-value">45%</span>
+          </label>
+          <label class="setting-row">
+            <span class="setting-label">Sound effects</span>
+            <input type="range" id="setting-sfx" min="0" max="1" step="0.05" />
+            <span id="setting-sfx-val" class="setting-value">55%</span>
           </label>
           <label class="setting-row">
             <span class="setting-label">Lighting</span>
@@ -143,8 +152,15 @@
           >Donate via PayPal</a>
         </div>
 
+        <div class="pause-panel hidden" data-panel="music">
+          <p class="about-text about-muted">
+            Music by <a href="https://pixabay.com/users/mfcc-28627740/?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=335681" target="_blank" rel="noopener noreferrer">Mykola Sosin</a> from <a href="https://pixabay.com//?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=335681" target="_blank" rel="noopener noreferrer">Pixabay</a>
+          </p>
+        </div>
+
         <div class="pause-actions">
           <button type="button" id="btn-pause-resume" class="btn primary">Resume</button>
+          <button type="button" id="btn-quit-maps" class="btn hidden">Map Select</button>
           <button type="button" id="btn-pause-close" class="btn hidden">Close</button>
         </div>
         <p class="pause-hint">Esc to resume</p>

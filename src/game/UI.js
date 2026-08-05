@@ -7,6 +7,13 @@ import {
   trySubmitGlobalRun,
 } from '../lib/globalLeaderboard.js';
 import { getBestWaves, setLeaderboardName } from '../lib/progress.js';
+import {
+  getMapBestWaves,
+  getMapUnlockHint,
+  isMapUnlocked,
+  MAP_LIST,
+  UNLOCK_WAVE_REQUIREMENT,
+} from '../lib/maps.js';
 
 const ATTACK_LABELS = {
   direct: 'Direct bolt — fast single target',
@@ -74,12 +81,15 @@ export class UI {
   constructor() {
     this.els = {
       hud: document.getElementById('hud'),
+      mapName: document.getElementById('hud-map-name'),
       crystals: document.getElementById('hud-crystals'),
       lives: document.getElementById('hud-lives'),
       wave: document.getElementById('hud-wave'),
       message: document.getElementById('hud-message'),
       hint: document.getElementById('hud-hint'),
       title: document.getElementById('title-screen'),
+      titleHeading: document.getElementById('title-heading'),
+      mapSelectGrid: document.getElementById('map-select-grid'),
       result: document.getElementById('result-screen'),
       resultTitle: document.getElementById('result-title'),
       resultMessage: document.getElementById('result-message'),
@@ -87,7 +97,7 @@ export class UI {
       towerPanel: document.getElementById('tower-panel'),
       btnRepairAll: document.getElementById('btn-repair-all'),
       btnNextWave: document.getElementById('btn-next-wave'),
-      btnPlay: document.getElementById('btn-play'),
+      btnLeaderboard: document.getElementById('btn-leaderboard'),
       btnResult: document.getElementById('btn-result'),
       inspector: document.getElementById('tower-inspector'),
       inspectorName: document.getElementById('inspector-name'),
@@ -99,6 +109,7 @@ export class UI {
       announcement: document.getElementById('wave-announcement'),
       announceTitle: document.getElementById('wave-announce-title'),
       announceSubtitle: document.getElementById('wave-announce-subtitle'),
+      onboardingBanner: document.getElementById('onboarding-banner'),
       leaderboard: document.getElementById('leaderboard-screen'),
       resultStats: document.getElementById('result-stats'),
     };
@@ -113,7 +124,7 @@ export class UI {
    */
   bind(game, towerDefs) {
     this.game = game;
-    this.els.btnPlay.addEventListener('click', () => game.startGame());
+    this.els.btnLeaderboard?.addEventListener('click', () => game.showLeaderboard());
     this.els.btnResult.addEventListener('click', () => game.dismissResult());
     this.els.btnUpgrade.addEventListener('click', () => game.tryUpgradeSelectedTower());
     this.els.btnRepair.addEventListener('click', () => game.tryRepairSelectedTower());
@@ -121,9 +132,61 @@ export class UI {
     this.els.btnRepairAll.addEventListener('click', () => game.tryRepairAllTowers());
     this.els.btnNextWave?.addEventListener('click', () => game.tryStartWave());
     this.els.btnInspectorClose.addEventListener('click', () => game.deselectPlacedTower());
-    document.getElementById('btn-leaderboard')?.addEventListener('click', () => game.showLeaderboard());
     document.getElementById('btn-leaderboard-close')?.addEventListener('click', () => game.closeLeaderboard());
     this.buildTowerPanel(towerDefs);
+    this.buildMapSelect();
+  }
+
+  buildMapSelect() {
+    const grid = this.els.mapSelectGrid;
+    if (!grid) return;
+    grid.innerHTML = '';
+    this.mapButtons = new Map();
+
+    MAP_LIST.forEach((map, index) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'map-select-btn';
+      btn.dataset.map = map.id;
+      btn.innerHTML = `
+        <span class="map-select-order">${index + 1}</span>
+        <span class="map-select-name">${map.name}</span>
+        <span class="map-select-blurb">${map.blurb}</span>
+        <span class="map-select-meta"></span>
+      `;
+      btn.addEventListener('click', () => {
+        if (btn.disabled) return;
+        this.game.startGame(map.id);
+      });
+      grid.appendChild(btn);
+      this.mapButtons.set(map.id, btn);
+    });
+  }
+
+  /** @param {import('../lib/progress.js').ReturnType<typeof import('../lib/progress.js').loadProgress>} progress */
+  updateMapSelect(progress) {
+    if (!this.mapButtons) return;
+    for (const [index, map] of MAP_LIST.entries()) {
+      const btn = this.mapButtons.get(map.id);
+      if (!btn) continue;
+      const unlocked = isMapUnlocked(progress, index);
+      const best = getMapBestWaves(progress, map.id);
+      const meta = btn.querySelector('.map-select-meta');
+      btn.classList.toggle('is-locked', !unlocked);
+      btn.disabled = !unlocked;
+      if (meta) {
+        if (!unlocked) {
+          meta.textContent = getMapUnlockHint(progress, map.id);
+        } else if (best >= UNLOCK_WAVE_REQUIREMENT) {
+          meta.textContent = `Best: ${best} waves · Unlocked next map`;
+        } else if (best > 0) {
+          meta.textContent = `Best: ${best} waves · Reach wave ${UNLOCK_WAVE_REQUIREMENT} to unlock next`;
+        } else {
+          meta.textContent = `Reach wave ${UNLOCK_WAVE_REQUIREMENT} to unlock the next map`;
+        }
+      }
+      btn.title = unlocked ? map.blurb : getMapUnlockHint(progress, map.id);
+    }
   }
 
   /** @param {object[]} towerDefs */
@@ -174,8 +237,10 @@ export class UI {
     this.els.title.style.backgroundImage = `url('${url}')`;
   }
 
-  showTitle() {
+  /** @param {import('../lib/progress.js').ReturnType<typeof import('../lib/progress.js').loadProgress>} [progress] */
+  showTitle(progress = this.game?.progress) {
     this.hideWaveAnnouncement();
+    this.clearOnboarding();
     document.getElementById('game-root')?.classList.add('title-active');
     this.els.title.classList.remove('hidden');
     this.els.hud.classList.add('hidden');
@@ -183,15 +248,21 @@ export class UI {
     this.els.inspector.classList.add('hidden');
     this.els.result.classList.add('hidden');
     this.els.leaderboard?.classList.add('hidden');
+    if (progress) this.updateMapSelect(progress);
     setTowerPreviewsActive(true);
   }
 
-  showPlaying() {
+  /** @param {string} [mapName] */
+  showPlaying(mapName) {
     document.getElementById('game-root')?.classList.remove('title-active');
     this.els.title.classList.add('hidden');
     this.els.result.classList.add('hidden');
     this.els.hud.classList.remove('hidden');
     this.els.towerToolbar.classList.remove('hidden');
+    if (mapName) {
+      if (this.els.mapName) this.els.mapName.textContent = mapName;
+      if (this.els.titleHeading) this.els.titleHeading.textContent = mapName;
+    }
     setTowerPreviewsActive(false);
   }
 
@@ -209,6 +280,27 @@ export class UI {
   /** @param {string} msg */
   setMessage(msg) {
     this.els.message.textContent = msg;
+  }
+
+  /** @param {{ step: 'place_tower' | 'start_wave', message: string }} opts */
+  setOnboarding(opts) {
+    const banner = this.els.onboardingBanner;
+    if (!banner) return;
+    banner.textContent = opts.message;
+    banner.classList.remove('hidden');
+
+    for (const [id, btn] of this.towerButtons) {
+      btn.classList.toggle('onboarding-target', opts.step === 'place_tower' && id === 'needle-spire');
+    }
+    this.els.btnNextWave?.classList.toggle('onboarding-target', opts.step === 'start_wave');
+  }
+
+  clearOnboarding() {
+    this.els.onboardingBanner?.classList.add('hidden');
+    for (const btn of this.towerButtons.values()) {
+      btn.classList.remove('onboarding-target');
+    }
+    this.els.btnNextWave?.classList.remove('onboarding-target');
   }
 
   /** @param {string} title @param {string} [subtitle] @param {'start' | 'complete' | 'failure' | 'victory'} [variant] @param {number} [durationMs] */

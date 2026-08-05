@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import mapData from '../../data/maps/tutorial.json';
 import towersData from '../../data/towers.json';
 import enemiesData from '../../data/enemies.json';
 import wavesConfig from '../../data/waves.json';
@@ -17,9 +16,22 @@ import { EffectsManager } from './EffectsManager.js';
 import { CrystalPickupManager } from './CrystalPickupManager.js';
 import { Settings } from './Settings.js';
 import { PauseMenu } from './PauseMenu.js';
+import { Onboarding } from './Onboarding.js';
 import { initDevPanel } from '../dev/DevPanel.js';
 import { loadProgress, recordRun, saveProgress, setLeaderboardName } from '../lib/progress.js';
 import { trySubmitGlobalRun } from '../lib/globalLeaderboard.js';
+import {
+  getFirstMapId,
+  getMapData,
+  formatMapHudTitle,
+  getMapMeta,
+  getMapBestWaves,
+  getNextMapMeta,
+  isMapIdUnlocked,
+  MAP_LIST,
+  UNLOCK_WAVE_REQUIREMENT,
+  updateMapBestWaves,
+} from '../lib/maps.js';
 
 /** @typedef {'title' | 'playing' | 'result' | 'gameover' | 'leaderboard'} GameState */
 
@@ -35,6 +47,8 @@ export class Game {
     this.paused = false;
     this.progress = loadProgress();
     this._lastRun = null;
+    this.currentMapId = getFirstMapId();
+    this.mapData = getMapData(this.currentMapId);
 
     this.scene = null;
     this.camera = null;
@@ -52,6 +66,7 @@ export class Game {
     this.towers = new TowerManager(this);
     this.enemies = new EnemyManager(this);
     this.waves = new WaveManager(this);
+    this.onboarding = new Onboarding(this);
 
     this.towerDefs = new Map(towersData.towers.map((t) => [t.id, t]));
     this._raf = 0;
@@ -75,7 +90,7 @@ export class Game {
 
     await this.effects.initModels();
 
-    await this.map.build(mapData);
+    await this.map.build(this.mapData);
     this.scene.add(this.map.group);
     this.fitCameraToBoard();
     this.scene.add(this.towers.group);
@@ -89,13 +104,29 @@ export class Game {
     this.input.init(this);
     this.ui.bind(this, towersData.towers);
     this.pauseMenu.bind(this);
-    this.audio.setVolume(this.settings.soundVolume);
+    this.audio.setSfxVolume(this.settings.sfxVolume);
+    this.audio.setMusicVolume(this.settings.musicVolume);
     this.ui.setTitleBackground(`${import.meta.env.BASE_URL}images/splash.png`);
-    this.ui.showTitle();
+    this.ui.showTitle(this.progress);
 
     initDevPanel({
-      getStatus: () =>
-        `${this.state} · ${this.crystals}cr · ${this.lives}hp · wave ${this.waves.currentWave} · ${this.settings.getDifficultyProfile().label}`,
+      getStatus: () => {
+        const mapName = getMapMeta(this.currentMapId).name;
+        return `${mapName} · ${this.state} · ${this.crystals}cr · ${this.lives}hp · wave ${this.waves.currentWave} · ${this.settings.getDifficultyProfile().label}`;
+      },
+      selects: [
+        {
+          label: 'Jump map',
+          value: this.currentMapId,
+          options: MAP_LIST.map((map, index) => ({
+            value: map.id,
+            label: `${index + 1}. ${map.name}`,
+          })),
+          onChange: (mapId) => {
+            this.startGame(mapId, { ignoreUnlock: true });
+          },
+        },
+      ],
       actions: [
         { label: '+100 crystals', fn: () => { this.crystals += 100; this.refreshHud(); } },
         { label: 'Start wave', fn: () => this.tryStartWave() },
@@ -132,8 +163,8 @@ export class Game {
 
   setupScene() {
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xd0eaff);
-    this.scene.fog = new THREE.Fog(0xd8eeff, 45, 80);
+    this.scene.background = new THREE.Color(0x2a2e33);
+    this.scene.fog = new THREE.Fog(0x2a2e33, 45, 80);
 
     this.camera = new THREE.PerspectiveCamera(
       45,
@@ -226,11 +257,13 @@ export class Game {
 
   /** @param {'playing' | 'title'} mode */
   openPauseMenu(mode) {
+    this.audio.unlock();
     this.paused = mode === 'playing';
     this.pauseMenu.show(mode);
     if (this.paused) {
       this.cancelPlacement();
       this.deselectPlacedTower();
+      this.audio.pauseMusic();
     }
   }
 
@@ -239,6 +272,22 @@ export class Game {
     if (this.pauseMenu.open) {
       this.pauseMenu.hide();
     }
+    if (this.state === 'playing') {
+      this.audio.resumeMusic();
+    }
+  }
+
+  quitToMapSelect() {
+    if (this.state !== 'playing') return;
+    this._saveMapProgress(this.waves.waveIndex);
+    if (this.onboarding.active) {
+      this.onboarding.active = false;
+    }
+    this.ui.clearOnboarding();
+    this.resetMatch();
+    this.closePauseMenu();
+    this.state = 'title';
+    this.ui.showTitle(this.progress);
   }
 
   /** @param {number} delta */
@@ -304,6 +353,27 @@ export class Game {
     this.rimLight.intensity = b.rim * level;
   }
 
+  /**
+   * @param {string} mapId
+   */
+  async loadMap(mapId) {
+    const mapData = getMapData(mapId);
+    this.currentMapId = mapId;
+    this.mapData = mapData;
+    this.resetMatch();
+    await this.map.build(mapData);
+    this.fitCameraToBoard();
+  }
+
+  /** @param {number} waves */
+  _saveMapProgress(waves) {
+    const next = updateMapBestWaves(this.progress, this.currentMapId, waves);
+    if (next !== this.progress) {
+      this.progress = next;
+      saveProgress(this.progress);
+    }
+  }
+
   getWavesCleared() {
     return this.waves.waveIndex + (this.waves.active ? 1 : 0);
   }
@@ -321,6 +391,7 @@ export class Game {
       outpostHp: Math.max(0, this.lives),
       at: Date.now(),
     };
+    this._saveMapProgress(this.waves.waveIndex);
     this.progress = recordRun(this.progress, run);
     saveProgress(this.progress);
     this._lastRun = run;
@@ -354,23 +425,37 @@ export class Game {
 
   closeLeaderboard() {
     this.state = 'title';
-    this.ui.showTitle();
+    this.ui.showTitle(this.progress);
   }
 
-  async startGame() {
+  async startGame(mapId = this.currentMapId, { ignoreUnlock = false } = {}) {
+    if (!ignoreUnlock && !isMapIdUnlocked(this.progress, mapId)) {
+      this.ui.showTitle(this.progress);
+      return;
+    }
     this.audio.unlock();
     this.closePauseMenu();
+    if (this.currentMapId !== mapId) {
+      await this.loadMap(mapId);
+    } else {
+      this.resetMatch();
+    }
     this.crystalPickups.clear();
-    this.crystals = mapData.startCrystals;
-    this.lives = mapData.startLives;
+    this.crystals = this.mapData.startCrystals;
+    this.lives = this.mapData.startLives;
     this._lastRun = null;
     this.waves.setWaves(generateWaves(wavesConfig.totalWaves ?? 100));
     this.fitCameraToBoard();
     this.state = 'playing';
-    this.ui.showPlaying();
-    this.selectTower(this.selectedTowerId);
+    this.ui.showPlaying(formatMapHudTitle(mapId));
+    if (this.onboarding.shouldRun()) {
+      this.cancelPlacement();
+      this.onboarding.begin();
+    } else {
+      this.selectTower(this.selectedTowerId);
+      this.ui.setMessage('Pick a tower (1–4), move cursor, LMB to place · RMB cancels');
+    }
     this.refreshHud();
-    this.ui.setMessage('Pick a tower (1–4), move cursor, LMB to place · RMB cancels');
     this.ui.setWave(1, this.waves.waves.length);
   }
 
@@ -554,7 +639,12 @@ export class Game {
       this.ui.setMessage('Game paused — press Esc to resume');
       return false;
     }
+    if (this.onboarding.active && this.onboarding.step !== 'start_wave') {
+      this.onboarding.syncUi();
+      return false;
+    }
     if (this.waves.startNextWave()) {
+      this.onboarding.onWaveStarted();
       this.refreshHud();
       return true;
     }
@@ -638,12 +728,16 @@ export class Game {
     this.crystals -= def.cost;
     this.audio.placeTower();
     this.refreshHud();
-    this.ui.setMessage(`${def.name} deployed — LMB to place another · RMB to cancel`);
-
-    if (this.crystals >= def.cost) {
-      await this.armPlacement(def.id);
-    } else {
+    const handledByOnboarding = this.onboarding.onTowerPlaced(def.id);
+    if (handledByOnboarding) {
       this.cancelPlacement();
+    } else {
+      this.ui.setMessage(`${def.name} deployed — LMB to place another · RMB to cancel`);
+      if (this.crystals >= def.cost) {
+        await this.armPlacement(def.id);
+      } else {
+        this.cancelPlacement();
+      }
     }
   }
 
@@ -720,13 +814,25 @@ export class Game {
       return;
     }
     const completed = this.waves.waveIndex;
+    const prevBest = getMapBestWaves(this.progress, this.currentMapId);
+    this._saveMapProgress(completed);
+    this.onboarding.onWaveCleared(completed);
     const bonus = waveClearBonus(completed, this.settings.getDifficultyProfile());
     this.crystals += bonus;
     const next = completed + 1;
     const bossNote = next % 10 === 0 ? ' Boss wave next!' : '';
-    this.ui.showWaveAnnouncement('Wave Cleared', `Wave ${completed} · +${bonus} crystals`, 'complete');
+    const nextMap = getNextMapMeta(this.currentMapId);
+    const unlockNote = completed >= UNLOCK_WAVE_REQUIREMENT
+      && prevBest < UNLOCK_WAVE_REQUIREMENT
+      && nextMap
+      ? ` New Map Available: ${nextMap.name}.`
+      : '';
+    const announceSubtitle = unlockNote
+      ? `+${bonus} crystals · New Map Available: ${nextMap.name}`
+      : `Wave ${completed} · +${bonus} crystals`;
+    this.ui.showWaveAnnouncement('Wave Cleared', announceSubtitle, 'complete');
     this.ui.setMessage(
-      `Wave ${completed} cleared! +${bonus} crystals.${bossNote} Click Start Wave or press Space for wave ${next}.`,
+      `Wave ${completed} cleared! +${bonus} crystals.${bossNote}${unlockNote} Click Start Wave or press Space for wave ${next}.`,
     );
     this.ui.setWave(next, this.waves.waves.length);
     this.refreshHud();
@@ -736,7 +842,7 @@ export class Game {
     if (this.state === 'gameover' || this.state === 'result') {
       this.closePauseMenu();
       this.resetMatch();
-      this.ui.showTitle();
+      this.ui.showTitle(this.progress);
       this.state = 'title';
     }
   }

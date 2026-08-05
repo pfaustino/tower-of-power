@@ -51,12 +51,13 @@ export const DIFFICULTIES = [
 ];
 
 const DEFAULTS = {
-  soundVolume: 0.55,
+  sfxVolume: 0.55,
+  musicVolume: 0.45,
   lightLevel: 0.75,
   difficulty: /** @type {DifficultyId} */ ('normal'),
 };
 
-/** @returns {{ soundVolume: number, lightLevel: number, difficulty: DifficultyId }} */
+/** @returns {{ sfxVolume: number, musicVolume: number, lightLevel: number, difficulty: DifficultyId }} */
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -65,8 +66,10 @@ function load() {
     const difficulty = DIFFICULTIES.some((d) => d.id === parsed.difficulty)
       ? parsed.difficulty
       : DEFAULTS.difficulty;
+    const legacySound = typeof parsed.soundVolume === 'number' ? parsed.soundVolume : null;
     return {
-      soundVolume: clamp(parsed.soundVolume ?? DEFAULTS.soundVolume, 0, 1),
+      sfxVolume: clamp(parsed.sfxVolume ?? legacySound ?? DEFAULTS.sfxVolume, 0, 1),
+      musicVolume: clamp(parsed.musicVolume ?? DEFAULTS.musicVolume, 0, 1),
       lightLevel: clamp(parsed.lightLevel ?? DEFAULTS.lightLevel, 0.4, 2.5),
       difficulty,
     };
@@ -83,7 +86,8 @@ function clamp(v, min, max) {
 export class Settings {
   constructor() {
     const saved = load();
-    this.soundVolume = saved.soundVolume;
+    this.sfxVolume = saved.sfxVolume;
+    this.musicVolume = saved.musicVolume;
     this.lightLevel = saved.lightLevel;
     this.difficulty = saved.difficulty;
     /** @type {Set<() => void>} */
@@ -94,7 +98,8 @@ export class Settings {
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
-        soundVolume: this.soundVolume,
+        sfxVolume: this.sfxVolume,
+        musicVolume: this.musicVolume,
         lightLevel: this.lightLevel,
         difficulty: this.difficulty,
       }),
@@ -113,8 +118,14 @@ export class Settings {
   }
 
   /** @param {number} v */
-  setSoundVolume(v) {
-    this.soundVolume = clamp(v, 0, 1);
+  setSfxVolume(v) {
+    this.sfxVolume = clamp(v, 0, 1);
+    this.save();
+  }
+
+  /** @param {number} v */
+  setMusicVolume(v) {
+    this.musicVolume = clamp(v, 0, 1);
     this.save();
   }
 

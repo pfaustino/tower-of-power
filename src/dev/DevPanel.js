@@ -1,4 +1,4 @@
-export function initDevPanel({ getStatus, actions, sliders = [], inputs = [] }) {
+export function initDevPanel({ getStatus, actions, sliders = [], inputs = [], selects = [] }) {
   if (!import.meta.env.DEV && !new URLSearchParams(location.search).has('dev')) return;
 
   const panel = document.createElement('div');
@@ -59,6 +59,29 @@ export function initDevPanel({ getStatus, actions, sliders = [], inputs = [] }) 
     btn.style.cssText = 'flex:1;cursor:pointer;padding:2px 4px;';
     btn.addEventListener('click', () => inputCfg.onSubmit(Number(input.value)));
     row.appendChild(btn);
+
+    panel.appendChild(row);
+  }
+
+  for (const selectCfg of selects) {
+    const row = document.createElement('label');
+    row.style.cssText = 'display:block;margin-top:8px;font-size:11px;';
+
+    const title = document.createElement('span');
+    title.textContent = selectCfg.label;
+    row.appendChild(title);
+
+    const select = document.createElement('select');
+    select.style.cssText = 'display:block;width:100%;margin-top:4px;cursor:pointer;';
+    for (const opt of selectCfg.options) {
+      const option = document.createElement('option');
+      option.value = String(opt.value);
+      option.textContent = opt.label;
+      select.appendChild(option);
+    }
+    if (selectCfg.value != null) select.value = String(selectCfg.value);
+    select.addEventListener('change', () => selectCfg.onChange(select.value));
+    row.appendChild(select);
 
     panel.appendChild(row);
   }

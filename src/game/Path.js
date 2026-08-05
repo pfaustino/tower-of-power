@@ -11,10 +11,58 @@ const OPPOSITE = { n: 's', s: 'n', e: 'w', w: 'e' };
 let pathFlow = new Map();
 
 /**
+ * @param {{ x: number, z: number, dir: string }[]} neighbors
+ * @param {string | null} travelDir direction moved into the current cell
+ * @param {{ x: number, z: number }} cur
+ */
+function pickNextNeighbor(neighbors, travelDir, cur) {
+  if (neighbors.length === 1) return neighbors[0];
+
+  if (travelDir) {
+    const horiz = travelDir === 'e' || travelDir === 'w';
+
+    if (neighbors.length === 2) {
+      if (horiz) {
+        const along = neighbors.find((n) => n.dir === 'e' || n.dir === 'w');
+        if (along) return along;
+      } else {
+        const turn = neighbors.find((n) => n.dir === 'e' || n.dir === 'w');
+        if (turn) return turn;
+      }
+    }
+
+    const straight = neighbors.find((n) => n.dir === travelDir);
+    if (straight) return straight;
+
+    const sameRow = (n) => n.z === cur.z;
+    const sameCol = (n) => n.x === cur.x;
+    if (horiz) {
+      const alongRow = neighbors.find(sameRow);
+      if (alongRow) return alongRow;
+    } else {
+      const turnOffColumn = neighbors.find((n) => !sameCol(n));
+      if (turnOffColumn) return turnOffColumn;
+      const alongCol = neighbors.find(sameCol);
+      if (alongCol) return alongCol;
+    }
+  }
+
+  for (const dir of ['e', 's', 'w', 'n']) {
+    const hit = neighbors.find((n) => n.dir === dir);
+    if (hit) return hit;
+  }
+  return neighbors[0];
+}
+
+/**
  * Trace grid cells along the path from spawn to end.
  * @param {string[][]} grid
+ * @param {[number, number][]} [pathOrder] authoritative spawn→end cell order
  */
-export function tracePathCells(grid) {
+export function tracePathCells(grid, pathOrder) {
+  if (pathOrder?.length) {
+    return pathOrder.map(([x, z]) => ({ x, z }));
+  }
   const rows = grid.length;
   const cols = grid[0].length;
   let spawn = null;
@@ -31,7 +79,7 @@ export function tracePathCells(grid) {
   const cells = [];
   const visited = new Set();
   let cur = spawn;
-  let prevDir = null;
+  let travelDir = null;
 
   while (cur) {
     const key = `${cur.x},${cur.z}`;
@@ -53,13 +101,8 @@ export function tracePathCells(grid) {
 
     if (neighbors.length === 0) break;
 
-    let next = neighbors[0];
-    if (neighbors.length > 1 && prevDir) {
-      const straight = neighbors.find((n) => n.dir === prevDir);
-      if (straight) next = straight;
-    }
-
-    prevDir = OPPOSITE[next.dir];
+    const next = pickNextNeighbor(neighbors, travelDir, cur);
+    travelDir = next.dir;
     cur = { x: next.x, z: next.z };
   }
 
@@ -83,10 +126,11 @@ function directionBetween(from, to) {
 /**
  * Cache entry/exit flow for each path cell.
  * @param {string[][]} grid
+ * @param {[number, number][]} [pathOrder]
  */
-export function buildPathFlow(grid) {
+export function buildPathFlow(grid, pathOrder) {
   pathFlow = new Map();
-  const cells = tracePathCells(grid);
+  const cells = tracePathCells(grid, pathOrder);
 
   for (let i = 0; i < cells.length; i++) {
     const cur = cells[i];
@@ -112,10 +156,11 @@ function getFlow(x, z) {
  * Build ordered waypoints from spawn to end along path cells.
  * @param {string[][]} grid
  * @param {number} tileSize
+ * @param {[number, number][]} [pathOrder]
  */
-export function buildPath(grid, tileSize) {
-  buildPathFlow(grid);
-  return tracePathCells(grid).map((c) => ({
+export function buildPath(grid, tileSize, pathOrder) {
+  buildPathFlow(grid, pathOrder);
+  return tracePathCells(grid, pathOrder).map((c) => ({
     x: (c.x + 0.5) * tileSize,
     z: (c.z + 0.5) * tileSize,
   }));
@@ -163,6 +208,14 @@ export function tileModelForCell(grid, x, z) {
   if (cell === 'build') return 'tile-dirt';
   if (cell !== 'path') return null;
 
+  const { entry, exit } = getFlow(x, z);
+  if (entry && exit) {
+    const opposite =
+      (entry === 'n' && exit === 's') || (entry === 's' && exit === 'n')
+      || (entry === 'e' && exit === 'w') || (entry === 'w' && exit === 'e');
+    return opposite ? 'tile-straight' : 'tile-corner-round';
+  }
+
   const { n, s, e, w } = pathNeighbors(grid, x, z);
   const count = [n, s, e, w].filter(Boolean).length;
 
@@ -172,20 +225,33 @@ export function tileModelForCell(grid, x, z) {
 }
 
 /**
- * Kenney tile-straight default: road runs East–West.
- * @param {boolean} n
- * @param {boolean} s
- * @param {boolean} e
- * @param {boolean} w
+ * Kenney tile-straight default: road runs North–South (railings east/west).
+ * @param {string | null} axis primary travel axis through the cell
  */
-function straightRotation(n, s, e, w) {
-  if (e && w) return Math.PI / 2;
-  if (n && s) return Math.PI;
+function straightRotationForAxis(axis) {
+  if (axis === 'e' || axis === 'w') return -Math.PI / 2;
   return 0;
 }
 
 /**
- * Kenney tile-corner-round default: road curves from South to East.
+ * @param {string | null} entry
+ * @param {string | null} exit
+ */
+function straightRotationFromFlow(entry, exit) {
+  const axis = exit ?? entry;
+  return straightRotationForAxis(axis);
+}
+
+/** @param {boolean} n @param {boolean} s @param {boolean} e @param {boolean} w */
+function straightRotation(n, s, e, w) {
+  if (n && s) return straightRotationForAxis('s');
+  if (e && w) return straightRotationForAxis('e');
+  return 0;
+}
+
+/**
+ * Kenney tile-corner-round default: openings on South (+Z) and East (+X).
+ * Rotation places those two openings on the entry/exit sides (order irrelevant).
  * @param {string | null} entry
  * @param {string | null} exit
  */
@@ -193,15 +259,15 @@ function cornerRotation(entry, exit) {
   const flow = `${entry ?? ''}${exit ?? ''}`;
   const map = {
     se: 0,
-    es: Math.PI,
-    ws: Math.PI / 2,
-    sw: Math.PI / 2,
-    nw: 0,
+    es: 0,
+    ne: Math.PI / 2,
+    en: Math.PI / 2,
+    nw: Math.PI,
     wn: Math.PI,
-    en: -Math.PI / 2,
-    ne: -Math.PI / 2,
+    sw: -Math.PI / 2,
+    ws: -Math.PI / 2,
   };
-  return (map[flow] ?? 0) + Math.PI;
+  return map[flow] ?? 0;
 }
 
 /**
@@ -232,9 +298,11 @@ export function tileRotation(grid, x, z, tileSize) {
   const model = tileModelForCell(grid, x, z);
   const { n, s, e, w } = pathNeighbors(grid, x, z);
 
-  if (model === 'tile-straight') return straightRotation(n, s, e, w);
-
   const { entry, exit } = getFlow(x, z);
+  if (model === 'tile-straight') {
+    return entry && exit ? straightRotationFromFlow(entry, exit) : straightRotation(n, s, e, w);
+  }
+
   if (model === 'tile-spawn') return spawnRotation(exit);
   if (model === 'tile-corner-round') return cornerRotation(entry, exit);
   if (model === 'tile-end') return endRotation(entry);

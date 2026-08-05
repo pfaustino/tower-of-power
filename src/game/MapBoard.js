@@ -14,6 +14,29 @@ function collectMaterials(root) {
   return mats;
 }
 
+const TILE_TINTS = {
+  path: 0xd4a96a,
+  spawn: 0xd4a96a,
+  end: 0xd4a96a,
+  build: 0x7a8f6e,
+  crystal: 0x6ec9b8,
+};
+
+/** @param {THREE.Object3D} tile @param {string} cell */
+function tintTile(tile, cell) {
+  const tint = TILE_TINTS[cell];
+  if (!tint) return;
+  tile.traverse((obj) => {
+    if (!(obj instanceof THREE.Mesh) || !obj.material || !('color' in obj.material)) return;
+    const mat = obj.material;
+    mat.color.setHex(tint);
+    if ('emissive' in mat) {
+      mat.emissive.setHex(tint);
+      mat.emissiveIntensity = cell === 'crystal' ? 0.12 : cell === 'build' ? 0.02 : 0.06;
+    }
+  });
+}
+
 export class MapBoard {
   /**
    * @param {import('./Game.js').Game} game
@@ -37,13 +60,14 @@ export class MapBoard {
    * @param {object} mapData
    */
   async build(mapData) {
-    const { grid, tileSize, startLives } = mapData;
+    this.clearGroup();
+    const { grid, tileSize, startLives, path } = mapData;
     this.grid = grid;
     this.tileSize = tileSize;
     this.outpostMaxLives = startLives ?? 15;
     this.buildable = [];
 
-    buildPathFlow(grid);
+    buildPathFlow(grid, path);
 
     const rows = grid.length;
     const cols = grid[0].length;
@@ -55,6 +79,7 @@ export class MapBoard {
 
         const tile = await loadModel(modelName);
         fitTileModel(tile, tileSize);
+        tintTile(tile, grid[z][x]);
         tile.position.set((x + 0.5) * tileSize, 0, (z + 0.5) * tileSize);
         tile.rotation.y = tileRotation(grid, x, z, tileSize);
         this.group.add(tile);
@@ -76,7 +101,7 @@ export class MapBoard {
     this.centerBoard(cols, rows, tileSize);
     await this.buildOutpost(grid, tileSize);
 
-    this.waypoints = buildPath(grid, tileSize).map(({ x, z }) => {
+    this.waypoints = buildPath(grid, tileSize, path).map(({ x, z }) => {
       const p = new THREE.Vector3(x, 0, z);
       this.group.localToWorld(p);
       return { x: p.x, z: p.z };
@@ -220,5 +245,28 @@ export class MapBoard {
 
   hideSelection() {
     if (this.selectionMesh) this.selectionMesh.visible = false;
+  }
+
+  clearGroup() {
+    while (this.group.children.length > 0) {
+      const child = this.group.children[0];
+      this.group.remove(child);
+      child.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) {
+          obj.geometry?.dispose();
+          if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose());
+          else obj.material?.dispose();
+        }
+      });
+    }
+    this.selectionMesh = null;
+    this.waypoints = [];
+    this.buildable = [];
+    this.occupied.clear();
+    this.outpost = null;
+    this.outpostMaterials = [];
+    this.outpostFlash = 0;
+    this.outpostHealthBar = null;
+    this.grid = [];
   }
 }
