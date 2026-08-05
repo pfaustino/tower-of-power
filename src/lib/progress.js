@@ -2,7 +2,7 @@ const STORAGE_KEY = 'tower-of-power-progress';
 const MAX_RUNS = 25;
 const MAX_NAME_LEN = 24;
 
-/** @typedef {{ waves: number, crystals: number, difficulty: string, victory: boolean, outpostHp: number, at: number }} RunRecord */
+/** @typedef {{ waves: number, crystals: number, difficulty: string, victory: boolean, outpostHp: number, at: number, mapId?: string, map?: number }} RunRecord */
 
 /** @returns {{ leaderboardName: string, runs: RunRecord[], onboardingComplete: boolean, mapProgress: Record<string, { bestWaves: number }> }} */
 export function loadProgress() {

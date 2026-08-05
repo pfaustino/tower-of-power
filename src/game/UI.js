@@ -9,6 +9,8 @@ import {
 import { getBestWaves, setLeaderboardName } from '../lib/progress.js';
 import {
   getMapBestWaves,
+  getMapMeta,
+  getMapNumber,
   getMapUnlockHint,
   isMapUnlocked,
   MAP_LIST,
@@ -75,6 +77,33 @@ function formatDifficultyLabel(id) {
     nightmare: 'Nightmare',
   };
   return labels[id] ?? id;
+}
+
+/**
+ * Display Map # KPI from a run or global meta row.
+ * @param {{ map?: number, mapId?: string } | null | undefined} source
+ */
+function formatMapKpi(source) {
+  const fromNumber = Number(source?.map);
+  if (Number.isFinite(fromNumber) && fromNumber > 0) return String(Math.floor(fromNumber));
+  if (typeof source?.mapId === 'string') {
+    const n = getMapNumber(source.mapId);
+    if (n > 0) return String(n);
+  }
+  return '—';
+}
+
+/**
+ * @param {{ map?: number, mapId?: string } | null | undefined} source
+ */
+function formatMapKpiTitle(source) {
+  const id = typeof source?.mapId === 'string' ? source.mapId : null;
+  if (!id) return '';
+  try {
+    return getMapMeta(id).name;
+  } catch {
+    return '';
+  }
 }
 
 export class UI {
@@ -340,15 +369,16 @@ export class UI {
     this.els.announcement.classList.remove('is-visible');
   }
 
-  /** @param {string} title @param {string} msg @param {{ waves?: number, crystals?: number, difficulty?: string, victory?: boolean } | null} [run] */
+  /** @param {string} title @param {string} msg @param {{ waves?: number, crystals?: number, difficulty?: string, victory?: boolean, map?: number, mapId?: string } | null} [run] */
   showResult(title, msg, run = null) {
     this.els.resultTitle.textContent = title;
     this.els.resultMessage.textContent = msg;
     if (this.els.resultStats) {
       if (run) {
         const outcome = run.victory ? 'Campaign cleared' : 'Waves cleared';
+        const mapLabel = formatMapKpi(run);
         this.els.resultStats.textContent =
-          `${outcome}: ${run.waves} · ${run.crystals ?? 0} cr · ${formatDifficultyLabel(run.difficulty ?? 'normal')}`;
+          `${outcome}: ${run.waves} · Map ${mapLabel} · ${run.crystals ?? 0} cr · ${formatDifficultyLabel(run.difficulty ?? 'normal')}`;
       } else {
         this.els.resultStats.textContent = '';
       }
@@ -480,7 +510,11 @@ export class UI {
 
   /** @param {{ runs: object[] }} progress */
   _buildLocalLeaderboard(progress) {
-    const runs = [...(progress.runs ?? [])].sort((a, b) => (b.waves ?? 0) - (a.waves ?? 0));
+    const runs = [...(progress.runs ?? [])].sort((a, b) => {
+      const waveDiff = (b.waves ?? 0) - (a.waves ?? 0);
+      if (waveDiff !== 0) return waveDiff;
+      return (Number(b.map) || getMapNumber(b.mapId) || 0) - (Number(a.map) || getMapNumber(a.mapId) || 0);
+    });
     const best = getBestWaves(runs);
     let rows = '<p class="leaderboard-empty">No runs yet — defend the outpost to set your first record!</p>';
     if (runs.length) {
@@ -491,21 +525,26 @@ export class UI {
               <tr>
                 <th>#</th>
                 <th>Waves</th>
+                <th>Map #</th>
                 <th>Crystals</th>
                 <th>Difficulty</th>
                 <th>Date</th>
               </tr>
             </thead>
             <tbody>
-              ${runs.map((run, i) => `
+              ${runs.map((run, i) => {
+                const mapTitle = formatMapKpiTitle(run);
+                return `
                 <tr class="leaderboard-row${run.waves === best ? ' leaderboard-row-best' : ''}">
                   <td>${i + 1}</td>
                   <td><strong>${run.waves ?? 0}</strong>${run.victory ? ' ★' : ''}${run.waves === best ? ' <span class="leaderboard-pr">PR</span>' : ''}</td>
+                  <td title="${escapeHtml(mapTitle)}">${escapeHtml(formatMapKpi(run))}</td>
                   <td>${run.crystals ?? '—'}</td>
                   <td>${escapeHtml(formatDifficultyLabel(run.difficulty ?? 'normal'))}</td>
                   <td>${formatRunDate(run.at)}</td>
                 </tr>
-              `).join('')}
+              `;
+              }).join('')}
             </tbody>
           </table>
         </div>
@@ -544,6 +583,12 @@ export class UI {
     if (!rows.length) {
       return '<p class="leaderboard-empty">No global scores yet — be the first!</p>';
     }
+    // API ranks by waves (value). Stable secondary: Map # desc when present.
+    const sorted = [...rows].sort((a, b) => {
+      const waveDiff = (b.value ?? 0) - (a.value ?? 0);
+      if (waveDiff !== 0) return waveDiff;
+      return (Number(b.meta?.map) || 0) - (Number(a.meta?.map) || 0);
+    });
     return `
       <div class="leaderboard-table-wrap">
         <table class="leaderboard-table" aria-label="Global top runs">
@@ -552,20 +597,25 @@ export class UI {
               <th>Rank</th>
               <th>Player</th>
               <th>Waves</th>
+              <th>Map #</th>
               <th>Crystals</th>
               <th>Difficulty</th>
             </tr>
           </thead>
           <tbody>
-            ${rows.map((row, i) => `
+            ${sorted.map((row, i) => {
+              const mapTitle = formatMapKpiTitle(row.meta);
+              return `
               <tr class="leaderboard-row${i === 0 ? ' leaderboard-row-best' : ''}">
                 <td>${i + 1}</td>
                 <td>${escapeHtml(row.player)}</td>
                 <td><strong>${row.value}</strong>${row.meta?.victory ? ' ★' : ''}</td>
+                <td title="${escapeHtml(mapTitle)}">${escapeHtml(formatMapKpi(row.meta))}</td>
                 <td>${row.meta?.crystals ?? '—'}</td>
                 <td>${escapeHtml(formatDifficultyLabel(row.meta?.difficulty ?? 'normal'))}</td>
               </tr>
-            `).join('')}
+            `;
+            }).join('')}
           </tbody>
         </table>
       </div>

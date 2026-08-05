@@ -74,8 +74,9 @@ export async function submitGlobalScore(payload) {
 
 /**
  * Fire-and-forget global score submit after a run ends.
+ * Ranked by waves (value). Map # is a KPI in meta only.
  * @param {{ leaderboardName?: string }} progress
- * @param {{ waves: number, crystals: number, difficulty: string, victory: boolean, outpostHp: number }} run
+ * @param {{ waves: number, crystals: number, difficulty: string, victory: boolean, outpostHp: number, mapId?: string, map?: number }} run
  */
 export function trySubmitGlobalRun(progress, run) {
   if (!isGlobalLeaderboardConfigured()) {
@@ -87,6 +88,7 @@ export function trySubmitGlobalRun(progress, run) {
   if (!Number.isFinite(waves) || waves < 1) {
     return { ok: false, reason: 'bad_score' };
   }
+  const map = Number(run.map);
   submitGlobalScore({
     player,
     value: Math.floor(waves),
@@ -95,6 +97,8 @@ export function trySubmitGlobalRun(progress, run) {
       crystals: Math.floor(run.crystals ?? 0),
       victory: Boolean(run.victory),
       outpostHp: Math.floor(run.outpostHp ?? 0),
+      mapId: typeof run.mapId === 'string' ? run.mapId : undefined,
+      map: Number.isFinite(map) && map > 0 ? Math.floor(map) : undefined,
     },
   });
   return { ok: true, player };

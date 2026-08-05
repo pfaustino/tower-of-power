@@ -46,10 +46,15 @@ export function getMapMeta(mapId) {
 }
 
 /** @param {string} mapId */
-export function formatMapHudTitle(mapId) {
+export function getMapNumber(mapId) {
   const index = MAP_LIST.findIndex((m) => m.id === mapId);
+  return index >= 0 ? index + 1 : 0;
+}
+
+/** @param {string} mapId */
+export function formatMapHudTitle(mapId) {
   const meta = getMapMeta(mapId);
-  return `${index + 1} : ${meta.name}`;
+  return `${getMapNumber(mapId)} : ${meta.name}`;
 }
 
 /** @returns {string} */

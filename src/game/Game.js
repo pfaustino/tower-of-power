@@ -25,6 +25,7 @@ import {
   getMapData,
   formatMapHudTitle,
   getMapMeta,
+  getMapNumber,
   getMapBestWaves,
   getNextMapMeta,
   isMapIdUnlocked,
@@ -389,7 +390,7 @@ export class Game {
 
   /**
    * @param {boolean} victory
-   * @returns {{ waves: number, crystals: number, difficulty: string, victory: boolean, outpostHp: number, at: number }}
+   * @returns {{ waves: number, crystals: number, difficulty: string, victory: boolean, outpostHp: number, at: number, mapId: string, map: number }}
    */
   finalizeRun(victory) {
     const run = {
@@ -399,6 +400,8 @@ export class Game {
       victory,
       outpostHp: Math.max(0, this.lives),
       at: Date.now(),
+      mapId: this.currentMapId,
+      map: getMapNumber(this.currentMapId),
     };
     this._saveMapProgress(this.waves.waveIndex);
     this.progress = recordRun(this.progress, run);

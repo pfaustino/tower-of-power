@@ -26,7 +26,7 @@ Vite · Three.js · GLB models
 
 ## Leaderboards
 
-Global scores use the shared [leaderboards](https://github.com/pfaustino/leaderboards) API. Ranked by **waves cleared** (100 on full campaign win).
+Global scores use the shared [leaderboards](https://github.com/pfaustino/leaderboards) API. Ranked by **waves cleared** (100 on full campaign win), with **Map #** shown as a KPI.
 
 Local runs are stored in the browser. Set a global name on the title **Leaderboard** screen or after a run ends to submit worldwide.
 
