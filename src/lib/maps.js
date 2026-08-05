@@ -94,6 +94,15 @@ export function getMapLastSuccessfulWave(progress, mapId) {
 }
 
 /**
+ * Crystal refund budget restored when continuing a map.
+ * @param {{ mapProgress?: Record<string, { continueCrystals?: number }> }} progress
+ * @param {string} mapId
+ */
+export function getMapContinueCrystals(progress, mapId) {
+  return Math.max(0, Math.floor(progress.mapProgress?.[mapId]?.continueCrystals ?? 0));
+}
+
+/**
  * @param {{ mapProgress?: Record<string, { bestWaves?: number }> }} progress
  * @param {number} mapIndex 0-based index in MAP_LIST
  */
@@ -115,25 +124,41 @@ export function isMapIdUnlocked(progress, mapId) {
 }
 
 /**
- * Updates best-waves high score and last-successful-wave checkpoint.
- * @param {{ mapProgress?: Record<string, { bestWaves?: number, lastSuccessfulWave?: number }> }} progress
+ * Updates best-waves high score, last-successful-wave checkpoint, and continue budget.
+ * @param {{ mapProgress?: Record<string, { bestWaves?: number, lastSuccessfulWave?: number, continueCrystals?: number }> }} progress
  * @param {string} mapId
  * @param {number} waves Successful waves cleared (0 leaves the continue checkpoint unchanged)
+ * @param {{ continueCrystals?: number }} [options]
  */
-export function updateMapBestWaves(progress, mapId, waves) {
+export function updateMapBestWaves(progress, mapId, waves, options = {}) {
   const cleared = Math.max(0, Math.floor(waves));
   const prev = progress.mapProgress?.[mapId] ?? {};
   const prevBest = Math.max(0, Math.floor(prev.bestWaves ?? 0));
   const prevLast = Math.max(0, Math.floor(prev.lastSuccessfulWave ?? 0));
+  const prevBudget = Math.max(0, Math.floor(prev.continueCrystals ?? 0));
   const bestWaves = Math.max(prevBest, cleared);
   // Never move the continue checkpoint backward (e.g. quit before starting a continue).
   const lastSuccessfulWave = cleared > 0 ? Math.max(prevLast, cleared) : prevLast;
-  if (bestWaves === prevBest && lastSuccessfulWave === prevLast) return progress;
+
+  let continueCrystals = prevBudget;
+  const incoming = options.continueCrystals;
+  // Only refresh the refund budget when this save matches/advances the continue wave.
+  if (Number.isFinite(incoming) && cleared > 0 && cleared >= prevLast) {
+    continueCrystals = Math.max(0, Math.floor(/** @type {number} */ (incoming)));
+  }
+
+  if (
+    bestWaves === prevBest
+    && lastSuccessfulWave === prevLast
+    && continueCrystals === prevBudget
+  ) {
+    return progress;
+  }
   return {
     ...progress,
     mapProgress: {
       ...(progress.mapProgress ?? {}),
-      [mapId]: { bestWaves, lastSuccessfulWave },
+      [mapId]: { bestWaves, lastSuccessfulWave, continueCrystals },
     },
   };
 }

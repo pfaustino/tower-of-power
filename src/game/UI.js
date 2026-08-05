@@ -9,6 +9,7 @@ import {
 import { getBestWaves, setLeaderboardName } from '../lib/progress.js';
 import {
   getMapBestWaves,
+  getMapContinueCrystals,
   getMapLastSuccessfulWave,
   getMapMeta,
   getMapNumber,
@@ -228,6 +229,7 @@ export class UI {
       const unlocked = isMapUnlocked(progress, index);
       const best = getMapBestWaves(progress, map.id);
       const last = getMapLastSuccessfulWave(progress, map.id);
+      const refund = getMapContinueCrystals(progress, map.id);
       const meta = card.querySelector('.map-select-meta');
       const continueBtn = card.querySelector('.map-select-continue');
       const newBtn = card.querySelector('.map-select-new');
@@ -237,7 +239,16 @@ export class UI {
         const canContinue = unlocked && last > 0;
         continueBtn.classList.toggle('hidden', !canContinue);
         continueBtn.dataset.wave = String(last);
-        continueBtn.textContent = canContinue ? `Continue · Wave ${last}` : 'Continue';
+        continueBtn.textContent = canContinue
+          ? (refund > 0
+            ? `Continue · Wave ${last} · ${refund} cr`
+            : `Continue · Wave ${last}`)
+          : 'Continue';
+        continueBtn.title = canContinue
+          ? (refund > 0
+            ? `Redo wave ${last} with ${refund} crystals (tower spend refunded)`
+            : `Redo wave ${last}`)
+          : '';
       }
       if (newBtn instanceof HTMLButtonElement) {
         newBtn.disabled = !unlocked;

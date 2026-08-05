@@ -6,7 +6,14 @@ import { generateWaves } from './WaveGenerator.js';
 import { waveClearBonus } from './WaveScaling.js';
 import { preloadModels } from './AssetLoader.js';
 import { MapBoard } from './MapBoard.js';
-import { TowerManager, getRepairAllCost, getRepairCost, getSellValue, getUpgradeCost } from './TowerManager.js';
+import {
+  TowerManager,
+  getRepairAllCost,
+  getRepairCost,
+  getSellValue,
+  getTotalInvested,
+  getUpgradeCost,
+} from './TowerManager.js';
 import { EnemyManager } from './EnemyManager.js';
 import { WaveManager } from './WaveManager.js';
 import { Input } from './Input.js';
@@ -27,6 +34,7 @@ import {
   getMapMeta,
   getMapNumber,
   getMapBestWaves,
+  getMapContinueCrystals,
   getNextMapMeta,
   isMapIdUnlocked,
   MAP_LIST,
@@ -395,9 +403,20 @@ export class Game {
     this.fitCameraToBoard();
   }
 
+  /** Crystals on hand + full refund of tower investment (for Continue). */
+  getContinueBudget() {
+    let invested = 0;
+    for (const tower of this.towers.towers) {
+      invested += getTotalInvested(tower);
+    }
+    return Math.max(0, Math.floor(this.crystals + invested));
+  }
+
   /** @param {number} waves Successful waves cleared */
   _saveMapProgress(waves) {
-    const next = updateMapBestWaves(this.progress, this.currentMapId, waves);
+    const next = updateMapBestWaves(this.progress, this.currentMapId, waves, {
+      continueCrystals: this.getContinueBudget(),
+    });
     if (next !== this.progress) {
       this.progress = next;
       saveProgress(this.progress);
@@ -478,12 +497,13 @@ export class Game {
       this.resetMatch();
     }
     this.crystalPickups.clear();
-    this.crystals = this.mapData.startCrystals;
+    const total = (wavesConfig.totalWaves ?? 100);
+    const wave = Math.max(1, Math.min(Math.floor(startWave) || 1, total));
+    const refund = wave > 1 ? getMapContinueCrystals(this.progress, mapId) : 0;
+    this.crystals = refund > 0 ? refund : this.mapData.startCrystals;
     this.lives = this.mapData.startLives;
     this._lastRun = null;
-    this.waves.setWaves(generateWaves(wavesConfig.totalWaves ?? 100));
-    const total = this.waves.waves.length;
-    const wave = Math.max(1, Math.min(Math.floor(startWave) || 1, total));
+    this.waves.setWaves(generateWaves(total));
     if (wave > 1) {
       this.waves.jumpTo(wave);
     }
@@ -497,12 +517,12 @@ export class Game {
       this.selectTower(this.selectedTowerId);
       this.ui.setMessage(
         wave > 1
-          ? `Continue: rebuild for wave ${wave}, then Start Wave (or Space).`
+          ? `Continue: ${this.crystals} crystals refunded — rebuild for wave ${wave}, then Start Wave.`
           : 'Pick a tower (1–4), move cursor, LMB to place · RMB cancels',
       );
     }
     this.refreshHud();
-    this.ui.setWave(wave, total);
+    this.ui.setWave(wave, this.waves.waves.length);
   }
 
   /**

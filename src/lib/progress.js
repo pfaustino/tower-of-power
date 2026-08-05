@@ -4,7 +4,7 @@ const MAX_NAME_LEN = 24;
 
 /** @typedef {{ waves: number, crystals: number, difficulty: string, victory: boolean, outpostHp: number, at: number, mapId?: string, map?: number }} RunRecord */
 
-/** @typedef {{ bestWaves: number, lastSuccessfulWave: number }} MapProgressEntry */
+/** @typedef {{ bestWaves: number, lastSuccessfulWave: number, continueCrystals: number }} MapProgressEntry */
 
 /** @returns {{ leaderboardName: string, runs: RunRecord[], onboardingComplete: boolean, mapProgress: Record<string, MapProgressEntry> }} */
 export function loadProgress() {
@@ -23,10 +23,15 @@ export function loadProgress() {
           0,
           Math.floor(Number(entry?.lastSuccessfulWave) || 0),
         );
-        if (bestWaves > 0 || lastSuccessfulWave > 0) {
+        const continueCrystals = Math.max(
+          0,
+          Math.floor(Number(entry?.continueCrystals) || 0),
+        );
+        if (bestWaves > 0 || lastSuccessfulWave > 0 || continueCrystals > 0) {
           mapProgress[id] = {
             bestWaves: Math.max(bestWaves, lastSuccessfulWave),
             lastSuccessfulWave: lastSuccessfulWave > 0 ? lastSuccessfulWave : bestWaves,
+            continueCrystals,
           };
         }
       }
