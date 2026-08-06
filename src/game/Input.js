@@ -21,12 +21,18 @@ export class Input {
     this.panStartY = 0;
     this.lastPanX = 0;
     this.lastPanY = 0;
+    /** @type {Map<number, { x: number, y: number }>} */
+    this.activePointers = new Map();
+    this.pinching = false;
+    this.pinchStartDist = 0;
+    this.pinchStartZoom = 1;
   }
 
   /** @param {import('./Game.js').Game} game */
   init(game) {
     this.game = game;
     this.canvas = document.getElementById('game-canvas');
+    this.canvas.style.touchAction = 'none';
     this.canvas.addEventListener('pointermove', this._onMove);
     this.canvas.addEventListener('pointerdown', this._onPointerDown);
     this.canvas.addEventListener('pointerup', this._onPointerUp);
@@ -40,6 +46,15 @@ export class Input {
   onMove(e) {
     if (this.game.pauseMenu.open) return;
     if (this.game.state !== 'playing' || this.game.paused) return;
+
+    if (this.activePointers.has(e.pointerId)) {
+      this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+
+    if (this.pinching || this.activePointers.size >= 2) {
+      this.updatePinchZoom();
+      return;
+    }
 
     if (this.panning && e.pointerId === this.panPointerId) {
       const totalDx = e.clientX - this.panStartX;
@@ -100,6 +115,18 @@ export class Input {
     }
     if (e.button !== 0) return;
 
+    this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try {
+      this.canvas.setPointerCapture(e.pointerId);
+    } catch {
+      /* ignore capture failures on some devices */
+    }
+
+    if (this.activePointers.size >= 2) {
+      this.beginPinch();
+      return;
+    }
+
     if (this.game.canPanCamera()) {
       this.panning = true;
       this.panDragged = false;
@@ -108,7 +135,6 @@ export class Input {
       this.panStartY = e.clientY;
       this.lastPanX = e.clientX;
       this.lastPanY = e.clientY;
-      this.canvas.setPointerCapture(e.pointerId);
       return;
     }
 
@@ -129,11 +155,32 @@ export class Input {
 
   /** @param {PointerEvent} e */
   onPointerUp(e) {
-    if (!this.panning || e.pointerId !== this.panPointerId) return;
-
-    if (this.canvas.hasPointerCapture(e.pointerId)) {
-      this.canvas.releasePointerCapture(e.pointerId);
+    const hadPointer = this.activePointers.delete(e.pointerId);
+    if (this.canvas.hasPointerCapture?.(e.pointerId)) {
+      try {
+        this.canvas.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
     }
+
+    if (this.pinching) {
+      if (this.activePointers.size < 2) {
+        this.pinching = false;
+        this.pinchStartDist = 0;
+        // Remaining finger should not instantly pan from a stale origin.
+        this.panning = false;
+        this.panPointerId = null;
+        this.panDragged = true;
+      }
+      return;
+    }
+
+    if (!this.panning || e.pointerId !== this.panPointerId) {
+      if (!hadPointer) return;
+      return;
+    }
+
     this.canvas.style.cursor = this.game.canPanCamera() ? 'grab' : '';
     const wasClick = !this.panDragged;
     this.panning = false;
@@ -145,6 +192,39 @@ export class Input {
       const { x, z } = this.hoverGrid;
       this.game.trySelectPlacedTower(x, z, this.raycaster);
     }
+  }
+
+  beginPinch() {
+    const dist = this.pinchDistance();
+    if (dist <= 0) return;
+    this.pinching = true;
+    this.pinchStartDist = dist;
+    this.pinchStartZoom = this.game.cameraZoom;
+    this.panning = false;
+    this.panPointerId = null;
+    this.panDragged = true;
+    this.canvas.style.cursor = '';
+  }
+
+  updatePinchZoom() {
+    if (this.activePointers.size < 2) return;
+    if (!this.pinching) this.beginPinch();
+    const dist = this.pinchDistance();
+    if (dist <= 0 || this.pinchStartDist <= 0) return;
+    // Fingers apart → zoom in (lower cameraZoom). Fingers together → zoom out.
+    const next = this.pinchStartZoom * (this.pinchStartDist / dist);
+    this.game.setCameraZoom(next);
+  }
+
+  /** @returns {number} */
+  pinchDistance() {
+    if (this.activePointers.size < 2) return 0;
+    const pts = [...this.activePointers.values()];
+    const a = pts[0];
+    const b = pts[1];
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    return Math.hypot(dx, dy);
   }
 
   /** @param {MouseEvent} e */

@@ -33,6 +33,46 @@ html, body {
   display: block;
   width: 100%;
   height: 100%;
+  touch-action: none;
+}
+
+.camera-zoom-controls {
+  display: none;
+  position: absolute;
+  right: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 12;
+  flex-direction: column;
+  gap: 0.4rem;
+  pointer-events: none;
+}
+
+.camera-zoom-btn {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 8px;
+  border: 1px solid rgba(92, 225, 255, 0.45);
+  background: rgba(8, 14, 28, 0.82);
+  color: #d8fbff;
+  font-family: var(--font-ui);
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.camera-zoom-btn:active {
+  background: rgba(92, 225, 255, 0.22);
+}
+
+/* Touch / coarse-pointer: show zoom buttons (desktop still uses scroll wheel). */
+@media (pointer: coarse), (hover: none) {
+  .camera-zoom-controls:not(.hidden) {
+    display: flex;
+  }
 }
 
 #game-root.title-active #game-canvas {
@@ -1259,6 +1299,17 @@ html, body {
     min-width: 0;
     padding: 0.28rem 0.45rem;
     font-size: 0.68rem;
+  }
+
+  .camera-zoom-controls {
+    right: 0.4rem;
+    gap: 0.3rem;
+  }
+
+  .camera-zoom-btn {
+    width: 2rem;
+    height: 2rem;
+    font-size: 1.15rem;
   }
 
   .tower-inspector,

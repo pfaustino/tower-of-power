@@ -331,7 +331,12 @@ export class Game {
 
   /** @param {number} delta */
   adjustCameraZoom(delta) {
-    this.cameraZoom = THREE.MathUtils.clamp(this.cameraZoom + delta, 0.55, 3);
+    this.setCameraZoom(this.cameraZoom + delta);
+  }
+
+  /** @param {number} zoom */
+  setCameraZoom(zoom) {
+    this.cameraZoom = THREE.MathUtils.clamp(zoom, 0.55, 3);
     this.updateCameraPosition();
   }
 

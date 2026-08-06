@@ -133,6 +133,9 @@ export class UI {
       btnRepairAll: document.getElementById('btn-repair-all'),
       btnNextWave: document.getElementById('btn-next-wave'),
       btnToolbarMaps: document.getElementById('btn-toolbar-maps'),
+      cameraZoomControls: document.getElementById('camera-zoom-controls'),
+      btnZoomIn: document.getElementById('btn-zoom-in'),
+      btnZoomOut: document.getElementById('btn-zoom-out'),
       btnLeaderboard: document.getElementById('btn-leaderboard'),
       btnResult: document.getElementById('btn-result'),
       inspector: document.getElementById('tower-inspector'),
@@ -176,6 +179,17 @@ export class UI {
     this.els.btnToolbarMaps?.addEventListener('click', () => {
       if (this.els.btnToolbarMaps?.disabled) return;
       game.quitToMapSelect();
+    });
+    const zoomStep = 0.18;
+    this.els.btnZoomIn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (game.state !== 'playing' || game.paused) return;
+      game.adjustCameraZoom(-zoomStep);
+    });
+    this.els.btnZoomOut?.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (game.state !== 'playing' || game.paused) return;
+      game.adjustCameraZoom(zoomStep);
     });
     this.els.btnInspectorClose.addEventListener('click', () => game.deselectPlacedTower());
     this.els.btnEnemyInspectorClose?.addEventListener('click', () => game.deselectEnemy());
@@ -330,6 +344,7 @@ export class UI {
     this.els.title.classList.remove('hidden');
     this.els.hud.classList.add('hidden');
     this.els.towerToolbar.classList.add('hidden');
+    this.els.cameraZoomControls?.classList.add('hidden');
     this.els.inspector.classList.add('hidden');
     this.els.enemyInspector?.classList.add('hidden');
     this.els.result.classList.add('hidden');
@@ -359,6 +374,7 @@ export class UI {
     this.els.result.classList.add('hidden');
     this.els.hud.classList.remove('hidden');
     this.els.towerToolbar.classList.remove('hidden');
+    this.els.cameraZoomControls?.classList.remove('hidden');
     if (mapName) {
       if (this.els.mapName) this.els.mapName.textContent = mapName;
       if (this.els.titleHeading) this.els.titleHeading.textContent = mapName;
@@ -527,6 +543,7 @@ export class UI {
     this.els.title.classList.add('hidden');
     this.els.hud.classList.add('hidden');
     this.els.towerToolbar.classList.add('hidden');
+    this.els.cameraZoomControls?.classList.add('hidden');
     this.els.inspector.classList.add('hidden');
     this.els.enemyInspector?.classList.add('hidden');
     this.els.result.classList.add('hidden');
