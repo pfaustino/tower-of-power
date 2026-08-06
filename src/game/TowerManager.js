@@ -256,6 +256,8 @@ export class TowerManager {
       materials: [],
       disabled: false,
       overclocked: this.game.abilities?.isOverclockActive?.() ?? false,
+      /** @type {'closest' | 'lowestHp' | 'highestHp'} */
+      targetPriority: 'closest',
     };
     root.traverse((obj) => {
       if (obj instanceof THREE.Mesh && obj.material) tower.materials.push(obj.material);
@@ -781,19 +783,53 @@ export class TowerManager {
     }
   }
 
+  /**
+   * @param {object} enemy
+   * @returns {number}
+   */
+  enemyPathScore(enemy) {
+    return (enemy.pathIndex ?? 0) * 1000 + (enemy.pathT ?? 0);
+  }
+
   /** @param {object} tower @param {number} range */
   findTarget(tower, range) {
+    const priority = tower.targetPriority ?? 'closest';
     let best = null;
-    let bestScore = -1;
+    /** @type {number | null} */
+    let bestMetric = null;
     const pos = tower.mesh.position;
 
     for (const enemy of this.game.enemies.alive) {
+      if (!enemy.alive) continue;
       const d = pos.distanceTo(enemy.mesh.position);
       if (d > range) continue;
-      const score = enemy.pathIndex * 1000 + enemy.pathT;
-      if (score > bestScore) {
-        bestScore = score;
+
+      let metric;
+      if (priority === 'lowestHp') metric = enemy.hp;
+      else if (priority === 'highestHp') metric = enemy.hp;
+      else metric = d; // closest
+
+      if (best === null || bestMetric === null) {
         best = enemy;
+        bestMetric = metric;
+        continue;
+      }
+
+      let better = false;
+      if (priority === 'lowestHp') better = metric < bestMetric;
+      else if (priority === 'highestHp') better = metric > bestMetric;
+      else better = metric < bestMetric;
+
+      if (better) {
+        best = enemy;
+        bestMetric = metric;
+        continue;
+      }
+
+      // Tie-break: prefer the UFO furthest along the path.
+      if (metric === bestMetric && this.enemyPathScore(enemy) > this.enemyPathScore(best)) {
+        best = enemy;
+        bestMetric = metric;
       }
     }
     return best;

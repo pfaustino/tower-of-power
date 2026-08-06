@@ -179,6 +179,12 @@ export class UI {
     this.els.btnUpgrade.addEventListener('click', () => game.tryUpgradeSelectedTower());
     this.els.btnRepair.addEventListener('click', () => game.tryRepairSelectedTower());
     this.els.btnSell.addEventListener('click', () => game.trySellSelectedTower());
+    document.querySelectorAll('.inspector-priority-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const priority = btn.getAttribute('data-priority');
+        if (priority) game.setSelectedTowerTargetPriority(priority);
+      });
+    });
     this.els.btnRepairAll.addEventListener('click', () => game.tryRepairAllTowers());
     this.els.btnNextWave?.addEventListener('click', () => game.tryStartWave());
     this.els.btnToolbarMaps?.addEventListener('click', () => {
@@ -882,7 +888,7 @@ export class UI {
     this.els.inspector.classList.remove('hidden');
     this.updateTowerInspector(tower);
     this.els.hint.textContent =
-      'Tower selected — Upgrade / Repair below · LMB place new towers · RMB cancel';
+      'Tower selected — set target priority · Upgrade / Repair · LMB place · RMB cancel';
   }
 
   hideTowerInspector() {
@@ -957,6 +963,11 @@ export class UI {
       (stats.slowPercent > 0
         ? ` · Slow ${Math.round(stats.slowPercent * 100)}% (${stats.slowDuration.toFixed(1)}s)`
         : '');
+
+    const priority = tower.targetPriority ?? 'closest';
+    document.querySelectorAll('.inspector-priority-btn').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.getAttribute('data-priority') === priority);
+    });
 
     if (tower.disabled || tower.hp <= 0) {
       this.els.btnUpgrade.textContent = 'Repair first';

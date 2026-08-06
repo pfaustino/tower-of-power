@@ -610,6 +610,18 @@ export class Game {
     this.audio.uiClick();
   }
 
+  /**
+   * @param {'closest' | 'lowestHp' | 'highestHp'} priority
+   */
+  setSelectedTowerTargetPriority(priority) {
+    const tower = this.selectedPlacedTower;
+    if (!tower) return;
+    if (priority !== 'closest' && priority !== 'lowestHp' && priority !== 'highestHp') return;
+    tower.targetPriority = priority;
+    this.ui.showTowerInspector(tower);
+    this.audio.uiClick();
+  }
+
   deselectPlacedTower() {
     if (!this.selectedPlacedTower) return;
     this.selectedPlacedTower = null;

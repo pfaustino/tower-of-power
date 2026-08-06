@@ -871,6 +871,50 @@ html, body {
   color: #dce8f4;
 }
 
+.inspector-priority {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0 0 0.65rem;
+}
+
+.inspector-priority-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.inspector-priority-btns {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.inspector-priority-btn {
+  flex: 1;
+  padding: 0.35rem 0.3rem;
+  border: 1px solid rgba(92, 225, 255, 0.22);
+  border-radius: 5px;
+  background: rgba(8, 16, 28, 0.55);
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.inspector-priority-btn:hover {
+  color: #fff;
+  border-color: rgba(92, 225, 255, 0.45);
+}
+
+.inspector-priority-btn.is-active {
+  color: #fff;
+  border-color: var(--accent);
+  background: rgba(42, 143, 163, 0.28);
+}
+
 .inspector-actions {
   display: flex;
   gap: 0.45rem;

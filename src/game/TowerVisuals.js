@@ -56,6 +56,13 @@ export function applyTowerUpgradeVisual(mesh, def, level) {
     base.multiplyScalar(brighten);
     mat.color.copy(base);
 
+    // Placed towers must stay fully opaque (never inherit ghost / atlas alpha look).
+    mat.transparent = false;
+    mat.opacity = 1;
+    if ('alphaTest' in mat) mat.alphaTest = 0;
+    mat.depthWrite = true;
+    mat.needsUpdate = true;
+
     if ('emissive' in mat) {
       mat.emissive.copy(accent);
       mat.emissiveIntensity = 0.03 + tier * 0.22;

@@ -66,17 +66,35 @@ function enhanceScene(root) {
 }
 
 /**
+ * Three.js Object3D.clone shares materials — give each instance its own so
+ * inert/ghost/upgrade visuals never bleed across towers.
+ * @param {THREE.Object3D} root
+ */
+function cloneWithUniqueMaterials(root) {
+  const clone = root.clone(true);
+  clone.traverse((obj) => {
+    if (!(obj instanceof THREE.Mesh) || !obj.material) return;
+    if (Array.isArray(obj.material)) {
+      obj.material = obj.material.map((m) => m.clone());
+    } else {
+      obj.material = obj.material.clone();
+    }
+  });
+  return clone;
+}
+
+/**
  * @param {string} name without extension
  */
 export async function loadModel(name) {
-  if (cache.has(name)) return cache.get(name).clone(true);
+  if (cache.has(name)) return cloneWithUniqueMaterials(cache.get(name));
 
   if (!colormap) await loadColormap();
 
   const gltf = await loader.loadAsync(`./models/${name}.glb`);
   enhanceScene(gltf.scene);
   cache.set(name, gltf.scene);
-  return gltf.scene.clone(true);
+  return cloneWithUniqueMaterials(gltf.scene);
 }
 
 export async function preloadModels(names) {
