@@ -439,7 +439,7 @@ export class UI {
     this.els.announcement.classList.remove('is-visible');
   }
 
-  /** @param {string} title @param {string} msg @param {{ waves?: number, crystals?: number, difficulty?: string, victory?: boolean, map?: number, mapId?: string } | null} [run] */
+  /** @param {string} title @param {string} msg @param {{ waves?: number, crystals?: number, difficulty?: string, victory?: boolean, retired?: boolean, map?: number, mapId?: string } | null} [run] */
   showResult(title, msg, run = null) {
     this.els.resultTitle.textContent = title;
     this.els.resultMessage.textContent = msg;
@@ -458,7 +458,7 @@ export class UI {
   }
 
   /**
-   * @param {{ waves: number, crystals: number, difficulty: string, victory: boolean } | null} run
+   * @param {{ waves: number, crystals: number, difficulty: string, victory: boolean, retired?: boolean } | null} run
    */
   _bindResultScoreSave(run) {
     const nameInput = /** @type {HTMLInputElement | null} */ (document.getElementById('result-name'));
@@ -467,8 +467,9 @@ export class UI {
     const row = document.getElementById('result-score-row');
     if (!nameInput || !status || !saveBtn || !row) return;
 
-    row.classList.toggle('hidden', !run);
-    if (!run) {
+    const canSave = Boolean(run?.victory || run?.retired);
+    row.classList.toggle('hidden', !canSave);
+    if (!canSave) {
       status.textContent = '';
       return;
     }
@@ -494,6 +495,10 @@ export class UI {
       }
       if (result.reason === 'no_name') {
         status.textContent = 'Enter a name to save your score.';
+        return;
+      }
+      if (result.reason === 'failure') {
+        status.textContent = 'Wave failures are not submitted to the global leaderboard.';
         return;
       }
       status.textContent = 'Could not save score.';

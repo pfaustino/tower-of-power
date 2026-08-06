@@ -306,6 +306,7 @@ export class Game {
         crystals: Math.floor(this.crystals),
         difficulty: this.settings.difficulty,
         victory: false,
+        retired: true,
         outpostHp: Math.max(0, this.lives),
         at: Date.now(),
         mapId: this.currentMapId,
@@ -446,7 +447,8 @@ export class Game {
     this.progress = recordRun(this.progress, run);
     saveProgress(this.progress);
     this._lastRun = run;
-    if (this.progress.leaderboardName?.trim()) {
+    // Global board: victories only (failures blocked in trySubmitGlobalRun too).
+    if (victory && this.progress.leaderboardName?.trim()) {
       trySubmitGlobalRun(this.progress, run);
     }
     return run;
