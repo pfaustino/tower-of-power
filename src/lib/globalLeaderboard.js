@@ -37,7 +37,15 @@ export async function fetchGlobalLeaderboard(limit = 50) {
       return { ok: false, error: body.error ?? `Server returned ${res.status}` };
     }
     const data = await res.json();
-    return { ok: true, rows: data.rows ?? [] };
+    // Hide wave-failure rows (victory false without a voluntary retire).
+    const rows = (data.rows ?? []).filter((row) => {
+      const meta = row?.meta;
+      if (!meta || typeof meta !== 'object') return true;
+      if (meta.victory === true || meta.retired === true) return true;
+      if (meta.victory === false) return false;
+      return true;
+    });
+    return { ok: true, rows };
   } catch {
     return { ok: false, error: 'Could not reach leaderboard server' };
   }
