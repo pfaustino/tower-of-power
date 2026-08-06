@@ -91,6 +91,14 @@ export class Input {
     const { x, z } = this.game.map.worldToGrid(hit.x, hit.z);
     this.hoverGrid = { x, z };
 
+    if (this.game.abilities.isStrikeArmed()) {
+      this.game.map.hideSelection();
+      this.game.towers.updatePlacementGhost(-1, -1, false);
+      this.game.abilities.updateStrikeAim(hit.x, hit.z);
+      this.canvas.style.cursor = 'crosshair';
+      return;
+    }
+
     if (this.game.placementArmed) {
       const valid = this.game.canDropAt(x, z);
       this.game.map.showSelection(x, z, valid);
@@ -124,6 +132,13 @@ export class Input {
 
     if (this.activePointers.size >= 2) {
       this.beginPinch();
+      return;
+    }
+
+    if (this.game.abilities.isStrikeArmed()) {
+      this.syncPointer(e);
+      const hit = this.intersectGround(e);
+      if (hit) this.game.abilities.confirmStrike(hit.x, hit.z);
       return;
     }
 

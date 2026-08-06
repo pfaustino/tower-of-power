@@ -233,7 +233,7 @@ export class UI {
     bar.classList.toggle('hidden', !playing);
     if (!playing) return;
 
-    let key = `p:${this.game.paused ? 1 : 0};c:${Math.floor(this.game.crystals)};`;
+    let key = `p:${this.game.paused ? 1 : 0};c:${Math.floor(this.game.crystals)};a:${this.game.abilities.isStrikeArmed() ? 1 : 0};`;
     for (const def of ABILITY_LIST) {
       const cd = this.game.abilities.cooldowns[def.id] ?? 0;
       key += `${def.id}:${cd > 0 ? Math.ceil(cd) : 0};`;
@@ -246,13 +246,19 @@ export class UI {
       if (!btn) continue;
       const cd = this.game.abilities.cooldowns[def.id] ?? 0;
       const canAfford = this.game.crystals >= def.cost;
-      const ready = cd <= 0 && canAfford && !this.game.paused;
-      const label = cd > 0 ? `${Math.ceil(cd)}s` : `${def.cost} cr`;
+      const armed = def.id === 'strike' && this.game.abilities.isStrikeArmed();
+      const ready = (cd <= 0 && canAfford && !this.game.paused) || armed;
+      const label = armed
+        ? 'Aim…'
+        : cd > 0
+          ? `${Math.ceil(cd)}s`
+          : `${def.cost} cr`;
       const costEl = btn.querySelector('.ability-cost');
       if (costEl) costEl.textContent = label;
-      btn.disabled = !ready;
-      btn.classList.toggle('is-cooling', cd > 0);
-      btn.classList.toggle('is-expensive', cd <= 0 && !canAfford);
+      btn.disabled = !ready && !armed;
+      btn.classList.toggle('is-cooling', cd > 0 && !armed);
+      btn.classList.toggle('is-expensive', cd <= 0 && !canAfford && !armed);
+      btn.classList.toggle('is-armed', armed);
     }
   }
 

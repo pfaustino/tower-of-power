@@ -284,6 +284,221 @@ export class EffectsManager {
   }
 
   /**
+   * Ice shockwave along the path + ambient sparkles.
+   * @param {THREE.Vector3[]} waypoints
+   */
+  spawnFreezeNova(waypoints) {
+    const pts = waypoints?.length ? waypoints : [];
+    for (let i = 0; i < pts.length; i += Math.max(1, Math.floor(pts.length / 8))) {
+      const p = pts[i];
+      this._spawnColoredPulse(p.x, p.z, 2.8, 0x66eeff, 0xccffff, 0.7);
+    }
+    if (pts.length >= 2) {
+      const mid = pts[Math.floor(pts.length / 2)];
+      this._spawnColoredPulse(mid.x, mid.z, 4.5, 0x88ddff, 0xffffff, 0.9);
+    }
+  }
+
+  /**
+   * @param {THREE.Vector3} position
+   */
+  spawnFreezeHit(position) {
+    const burst = { age: 0, duration: 0.65, radius: 1.4, meshes: [] };
+    for (let i = 0; i < 10; i++) {
+      const angle = (i / 10) * Math.PI * 2;
+      const mesh = new THREE.Mesh(
+        SHARED_GEOS.spark,
+        new THREE.MeshBasicMaterial({
+          color: i % 2 ? 0xccffff : 0x66ddff,
+          transparent: true,
+          opacity: 0.95,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        }),
+      );
+      mesh.position.set(position.x, Math.max(position.y, 0.7), position.z);
+      this.group.add(mesh);
+      burst.meshes.push({
+        mesh,
+        kind: 'particle',
+        sharedGeo: true,
+        velocity: new THREE.Vector3(
+          Math.cos(angle) * (2.2 + Math.random()),
+          1.8 + Math.random() * 1.5,
+          Math.sin(angle) * (2.2 + Math.random()),
+        ),
+      });
+    }
+    this._spawnColoredPulse(position.x, position.z, 1.5, 0x66eeff, 0xffffff, 0.45);
+    this.bursts.push(burst);
+  }
+
+  /**
+   * Pillar + shockwave at the aimed strike point.
+   * @param {THREE.Vector3} position
+   * @param {number} radius
+   */
+  spawnOrbitalStrike(position, radius) {
+    this.spawnSplash(position, radius);
+    this.spawnBeamBurst(position.clone().setY(1.3));
+
+    const burst = { age: 0, duration: 0.85, radius, meshes: [] };
+    const pillar = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.15, 0.55, 10, 10),
+      new THREE.MeshBasicMaterial({
+        color: 0xffaa44,
+        transparent: true,
+        opacity: 0.75,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    pillar.position.set(position.x, 5.2, position.z);
+    this.group.add(pillar);
+    burst.meshes.push({ mesh: pillar, kind: 'flash' });
+
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(radius * 0.2, radius * 0.45, 40),
+      new THREE.MeshBasicMaterial({
+        color: 0xff6622,
+        transparent: true,
+        opacity: 0.9,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(position.x, 0.6, position.z);
+    this.group.add(ring);
+    burst.meshes.push({
+      mesh: ring,
+      kind: 'pulseRing',
+      maxRadius: radius,
+      outerStart: radius * 0.45,
+      baseOpacity: 0.9,
+    });
+
+    for (let i = 0; i < 16; i++) {
+      const angle = (i / 16) * Math.PI * 2;
+      const mesh = new THREE.Mesh(
+        SHARED_GEOS.spark,
+        new THREE.MeshBasicMaterial({
+          color: i % 2 ? 0xffcc66 : 0xff5522,
+          transparent: true,
+          opacity: 1,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        }),
+      );
+      mesh.position.set(position.x, 1.1, position.z);
+      this.group.add(mesh);
+      burst.meshes.push({
+        mesh,
+        kind: 'particle',
+        sharedGeo: true,
+        velocity: new THREE.Vector3(
+          Math.cos(angle) * (3 + Math.random() * 3),
+          2 + Math.random() * 3,
+          Math.sin(angle) * (3 + Math.random() * 3),
+        ),
+      });
+    }
+    this.bursts.push(burst);
+  }
+
+  /**
+   * @param {THREE.Vector3} position
+   */
+  spawnStrikeHit(position) {
+    this.spawnBeamBurst(position.clone().setY(Math.max(position.y, 0.9)));
+    this._spawnColoredPulse(position.x, position.z, 1.3, 0xff8844, 0xffee88, 0.4);
+  }
+
+  /**
+   * @param {THREE.Vector3} position
+   */
+  spawnOverclockBurst(position) {
+    this._spawnColoredPulse(position.x, position.z, 2.6, 0xffd966, 0xfff0aa, 0.7);
+    const burst = { age: 0, duration: 0.7, radius: 2, meshes: [] };
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const mesh = new THREE.Mesh(
+        SHARED_GEOS.spark,
+        new THREE.MeshBasicMaterial({
+          color: 0xffe566,
+          transparent: true,
+          opacity: 0.95,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        }),
+      );
+      mesh.position.set(position.x, 1.0, position.z);
+      this.group.add(mesh);
+      burst.meshes.push({
+        mesh,
+        kind: 'particle',
+        sharedGeo: true,
+        velocity: new THREE.Vector3(
+          Math.cos(angle) * 2.4,
+          2.5,
+          Math.sin(angle) * 2.4,
+        ),
+      });
+    }
+    this.bursts.push(burst);
+  }
+
+  /**
+   * @param {number} x
+   * @param {number} z
+   * @param {number} maxRadius
+   * @param {number} color
+   * @param {number} coreColor
+   * @param {number} duration
+   */
+  _spawnColoredPulse(x, z, maxRadius, color, coreColor, duration = 0.55) {
+    const burst = { age: 0, duration, radius: maxRadius, meshes: [] };
+    const outerStart = 0.35;
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.12, outerStart, 40),
+      new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.95,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(x, 0.58, z);
+    this.group.add(ring);
+    burst.meshes.push({
+      mesh: ring,
+      kind: 'pulseRing',
+      maxRadius,
+      outerStart,
+      baseOpacity: 0.95,
+    });
+
+    const core = new THREE.Mesh(
+      new THREE.SphereGeometry(0.16, 10, 10),
+      new THREE.MeshBasicMaterial({
+        color: coreColor,
+        transparent: true,
+        opacity: 0.9,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    core.position.set(x, 0.9, z);
+    this.group.add(core);
+    burst.meshes.push({ mesh: core, kind: 'pulseCore' });
+    this.bursts.push(burst);
+  }
+
+  /**
    * Expanding danger ring used for boss attack / spawn telegraphs.
    * @param {THREE.Vector3} position
    * @param {number} [maxRadius]

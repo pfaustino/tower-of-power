@@ -255,6 +255,7 @@ export class Game {
       this.state === 'playing'
       && !this.paused
       && !this.placementArmed
+      && !this.abilities.isStrikeArmed()
       && !this.selectedPlacedTower
       && !this.selectedEnemy
     );
@@ -554,6 +555,7 @@ export class Game {
       this.ui.setMessage(`Need ${def?.cost ?? 0} crystals`);
       return;
     }
+    if (this.abilities.isStrikeArmed()) this.abilities.cancelStrikeAim();
     this.deselectPlacedTower();
     this.deselectEnemy();
     this.selectedTowerId = id;
@@ -588,6 +590,10 @@ export class Game {
     this.towers.hidePlacementGhost();
     this.map.hideSelection();
     this.ui.setSelectedTower(null);
+    if (this.abilities.isStrikeArmed()) {
+      this.abilities.cancelStrikeAim();
+      this.ui.setMessage('Strike cancelled');
+    }
     this.refreshHud();
   }
 

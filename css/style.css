@@ -486,12 +486,13 @@ html, body {
 
 .ability-bar {
   position: absolute;
-  left: 50%;
-  bottom: calc(5.6rem + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
-  z-index: 11;
+  left: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 12;
   display: flex;
-  gap: 0.45rem;
+  flex-direction: column;
+  gap: 0.4rem;
   pointer-events: none;
 }
 
@@ -501,11 +502,11 @@ html, body {
 
 .ability-btn {
   position: relative;
-  min-width: 5.4rem;
-  padding: 0.4rem 0.55rem 0.45rem;
+  min-width: 4.6rem;
+  padding: 0.4rem 0.5rem 0.45rem;
   border-radius: 8px;
   border: 1px solid rgba(255, 217, 102, 0.45);
-  background: rgba(18, 14, 8, 0.88);
+  background: rgba(18, 14, 8, 0.9);
   color: #ffe9a8;
   font-family: var(--font-ui);
   font-weight: 700;
@@ -516,6 +517,12 @@ html, body {
   align-items: center;
   gap: 0.05rem;
   touch-action: manipulation;
+}
+
+.ability-btn.is-armed {
+  border-color: #ff8844;
+  box-shadow: 0 0 14px rgba(255, 120, 40, 0.45);
+  background: rgba(40, 18, 8, 0.95);
 }
 
 .ability-btn:hover:not(:disabled) {
@@ -1327,13 +1334,13 @@ html, body {
 /* Compact tower bar for phones/tablets in landscape */
 @media (orientation: landscape) and (max-height: 700px) {
   .ability-bar {
-    bottom: calc(3.35rem + env(safe-area-inset-bottom, 0px));
+    left: 0.4rem;
     gap: 0.28rem;
   }
 
   .ability-btn {
-    min-width: 3.6rem;
-    padding: 0.22rem 0.35rem 0.28rem;
+    min-width: 3.4rem;
+    padding: 0.22rem 0.3rem 0.28rem;
   }
 
   .ability-name {
