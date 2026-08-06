@@ -257,6 +257,41 @@ export class AudioManager {
     this._tone(520, 0.04, 'sine', 0.08);
   }
 
+  bossTelegraph() {
+    this._tone(140, 0.18, 'sawtooth', 0.16);
+    this._tone(220, 0.28, 'triangle', 0.12);
+  }
+
+  bossKill() {
+    if (!this.unlocked) return;
+    const t0 = this._ensureCtx().currentTime;
+    this._scheduleTone(220, t0, 0.12, 'sawtooth', 0.18);
+    this._scheduleTone(440, t0 + 0.08, 0.16, 'triangle', 0.16);
+    this._scheduleTone(660, t0 + 0.18, 0.22, 'sine', 0.14);
+    this._scheduleNoise(0.2, t0 + 0.05, 0.12);
+  }
+
+  abilityFreeze() {
+    if (!this.unlocked) return;
+    const t0 = this._ensureCtx().currentTime;
+    this._scheduleTone(880, t0, 0.2, 'sine', 0.12, 220);
+    this._scheduleTone(1320, t0 + 0.05, 0.25, 'triangle', 0.1, 330);
+  }
+
+  abilityStrike() {
+    this._tone(60, 0.22, 'sawtooth', 0.28);
+    this._noise(0.25, 0.22);
+    this._tone(180, 0.3, 'triangle', 0.14);
+  }
+
+  abilityOverclock() {
+    if (!this.unlocked) return;
+    const t0 = this._ensureCtx().currentTime;
+    this._scheduleTone(520, t0, 0.08, 'square', 0.1);
+    this._scheduleTone(780, t0 + 0.07, 0.1, 'square', 0.12);
+    this._scheduleTone(1040, t0 + 0.14, 0.16, 'triangle', 0.12);
+  }
+
   /** @param {number} volume 0–1 */
   setSfxVolume(volume) {
     this.sfxVolume = Math.min(1, Math.max(0, volume));

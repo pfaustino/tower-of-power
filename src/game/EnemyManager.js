@@ -177,14 +177,24 @@ export class EnemyManager {
       attackRange: (def.attackRange ?? 4.2) * (isBoss ? 1.1 : 1),
       attackRate: (def.attackRate ?? 0.38) * (0.85 + attackScale * 0.3) * (isBoss ? 0.9 : 1),
       attackCooldown: Math.random() * 1.5,
+      attackWindup: 0,
+      windupTarget: null,
+      telegraphRing: null,
       slowMultiplier: 1,
       slowTimer: 0,
+      powerSlowTimer: 0,
+      powerSlowMultiplier: 1,
     };
     this.group.add(root);
     this.group.add(hpBar.group);
     root.userData.enemy = enemy;
     this.alive.push(enemy);
     this.syncHealthBarPosition(enemy);
+    if (isBoss) {
+      this.game.effects.spawnBossTelegraph(root.position.clone(), 2.4);
+      this.game.audio.bossTelegraph();
+      this.game.ui.setMessage(`${def.name} has entered the field — watch for attack telegraphs!`);
+    }
     return enemy;
   }
 
@@ -306,15 +316,36 @@ export class EnemyManager {
       this.syncHealthBarPosition(e);
       this.updateHitFlash(e, dt);
       this.updateSlowEffect(e, dt);
+      this.updatePowerSlow(e, dt);
       if (e.eliteRing) e.eliteRing.rotation.z += dt * 1.8;
+      this.updateBossTelegraph(e, dt);
 
       if (waveActive && e.canAttack) {
-        e.attackCooldown = Math.max(0, e.attackCooldown - dt);
-        if (e.attackCooldown <= 0) {
-          const tower = this.findTowerTarget(e);
-          if (tower) {
-            this.fireAtTower(e, tower);
+        if (e.attackWindup > 0) {
+          e.attackWindup = Math.max(0, e.attackWindup - dt);
+          if (e.attackWindup <= 0 && e.windupTarget) {
+            const target = e.windupTarget;
+            this.clearBossTelegraph(e);
+            if (!target.disabled && target.hp > 0 && this.game.towers.towers.includes(target)) {
+              this.fireAtTower(e, target);
+            }
             e.attackCooldown = 1 / e.attackRate;
+            e.windupTarget = null;
+          }
+        } else {
+          e.attackCooldown = Math.max(0, e.attackCooldown - dt);
+          if (e.attackCooldown <= 0) {
+            const tower = this.findTowerTarget(e);
+            if (tower) {
+              if (e.isBoss) {
+                e.attackWindup = 0.9;
+                e.windupTarget = tower;
+                this.beginBossTelegraph(e, tower);
+              } else {
+                this.fireAtTower(e, tower);
+                e.attackCooldown = 1 / e.attackRate;
+              }
+            }
           }
         }
       }
@@ -451,10 +482,78 @@ export class EnemyManager {
 
   /** @param {object} enemy */
   getMoveSpeed(enemy) {
-    if (enemy.slowTimer > 0) {
-      return enemy.speed * (enemy.slowMultiplier ?? 1);
+    let speed = enemy.speed;
+    if ((enemy.powerSlowTimer ?? 0) > 0) {
+      speed *= enemy.powerSlowMultiplier ?? 0.3;
+    } else if (enemy.slowTimer > 0) {
+      speed *= enemy.slowMultiplier ?? 1;
     }
-    return enemy.speed;
+    return speed;
+  }
+
+  /**
+   * @param {object} enemy
+   * @param {object} tower
+   */
+  beginBossTelegraph(enemy, tower) {
+    this.clearBossTelegraph(enemy);
+    this.game.audio.bossTelegraph();
+    this.game.effects.spawnBossTelegraph(tower.mesh.position.clone(), 1.8);
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.55, 0.95, 28),
+      new THREE.MeshBasicMaterial({
+        color: 0xff2244,
+        transparent: true,
+        opacity: 0.85,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(tower.mesh.position.x, 0.7, tower.mesh.position.z);
+    this.group.add(ring);
+    enemy.telegraphRing = ring;
+    this.game.ui.setMessage(`${enemy.def.name} locking onto ${tower.def.name}!`);
+  }
+
+  /** @param {object} enemy @param {number} dt */
+  updateBossTelegraph(enemy, dt) {
+    const ring = enemy.telegraphRing;
+    if (!ring) return;
+    const pulse = 0.7 + Math.sin(this.game.clock.getElapsedTime() * 14) * 0.3;
+    ring.scale.setScalar(0.85 + (1 - Math.min(1, enemy.attackWindup / 0.9)) * 0.55);
+    if (ring.material) ring.material.opacity = 0.45 + pulse * 0.45;
+    if (enemy.windupTarget?.mesh) {
+      ring.position.x = enemy.windupTarget.mesh.position.x;
+      ring.position.z = enemy.windupTarget.mesh.position.z;
+    }
+  }
+
+  /** @param {object} enemy */
+  clearBossTelegraph(enemy) {
+    if (!enemy.telegraphRing) return;
+    this.group.remove(enemy.telegraphRing);
+    enemy.telegraphRing.material?.dispose?.();
+    enemy.telegraphRing = null;
+  }
+
+  /** @param {object} enemy @param {number} dt */
+  updatePowerSlow(enemy, dt) {
+    if ((enemy.powerSlowTimer ?? 0) <= 0) return;
+    enemy.powerSlowTimer = Math.max(0, enemy.powerSlowTimer - dt);
+    if (enemy.hitFlash <= 0 && this.game.selectedEnemy !== enemy) {
+      const pulse = 0.2 + Math.sin(this.game.clock.getElapsedTime() * 10) * 0.08;
+      for (const m of enemy.materials) {
+        if (!('emissive' in m)) continue;
+        m.emissive.setHex(0x66eeff);
+        m.emissiveIntensity = 0.35 + pulse;
+      }
+    }
+    if (enemy.powerSlowTimer <= 0) {
+      enemy.powerSlowMultiplier = 1;
+      if (enemy.slowTimer <= 0) this.clearSlow(enemy);
+    }
   }
 
   /** @param {object} enemy */
@@ -645,6 +744,7 @@ export class EnemyManager {
 
   /** @param {object} enemy */
   remove(enemy) {
+    this.clearBossTelegraph(enemy);
     if (this.game.selectedEnemy === enemy) {
       this.game.deselectEnemy();
     } else {

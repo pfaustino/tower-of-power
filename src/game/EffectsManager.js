@@ -284,6 +284,51 @@ export class EffectsManager {
   }
 
   /**
+   * Expanding danger ring used for boss attack / spawn telegraphs.
+   * @param {THREE.Vector3} position
+   * @param {number} [maxRadius]
+   */
+  spawnBossTelegraph(position, maxRadius = 2.2) {
+    const burst = { age: 0, duration: 0.85, radius: maxRadius, meshes: [] };
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.2, 0.55, 36),
+      new THREE.MeshBasicMaterial({
+        color: 0xff2244,
+        transparent: true,
+        opacity: 0.9,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(position.x, 0.62, position.z);
+    this.group.add(ring);
+    burst.meshes.push({
+      mesh: ring,
+      kind: 'pulseRing',
+      maxRadius,
+      outerStart: 0.55,
+      baseOpacity: 0.9,
+    });
+
+    const core = new THREE.Mesh(
+      new THREE.SphereGeometry(0.16, 8, 8),
+      new THREE.MeshBasicMaterial({
+        color: 0xff6688,
+        transparent: true,
+        opacity: 0.85,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    core.position.set(position.x, 0.9, position.z);
+    this.group.add(core);
+    burst.meshes.push({ mesh: core, kind: 'pulseCore' });
+    this.bursts.push(burst);
+  }
+
+  /**
    * @param {THREE.Vector3} position
    */
   spawnLeak(position) {

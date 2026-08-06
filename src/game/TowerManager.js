@@ -35,13 +35,16 @@ export function getTowerStats(tower) {
   const def = tower.def;
   const lvl = tower.level ?? 1;
   const steps = lvl - 1;
+  const overclocked = Boolean(tower.overclocked);
+  const dmgMult = overclocked ? 1.3 : 1;
+  const rateMult = overclocked ? 1.75 : 1;
   return {
     range: def.range + steps * 0.35,
-    damage: def.damage * (1 + steps * 0.17),
-    fireRate: def.fireRate * (1 + steps * 0.075),
+    damage: def.damage * (1 + steps * 0.17) * dmgMult,
+    fireRate: def.fireRate * (1 + steps * 0.075) * rateMult,
     oilRadius: (def.oilRadius ?? 2) + steps * 0.1,
     oilDuration: def.oilDuration ?? 5,
-    oilBurnDps: (def.oilBurnDps ?? 10) * (1 + steps * 0.1),
+    oilBurnDps: (def.oilBurnDps ?? 10) * (1 + steps * 0.1) * dmgMult,
     slowPercent: def.slowPercent
       ? Math.min(0.6, def.slowPercent * (1 + steps * 0.1))
       : 0,
@@ -252,6 +255,7 @@ export class TowerManager {
       hitFlash: 0,
       materials: [],
       disabled: false,
+      overclocked: this.game.abilities?.isOverclockActive?.() ?? false,
     };
     root.traverse((obj) => {
       if (obj instanceof THREE.Mesh && obj.material) tower.materials.push(obj.material);
@@ -644,9 +648,12 @@ export class TowerManager {
 
       if (tower.cooldown <= 0) {
         this.fire(tower, target, stats);
-        tower.cooldown = tower.def.attackType === 'oil'
-          ? (tower.def.oilCooldown ?? 5)
-          : 1 / stats.fireRate;
+        if (tower.def.attackType === 'oil') {
+          const oilCd = tower.def.oilCooldown ?? 5;
+          tower.cooldown = tower.overclocked ? oilCd / 1.75 : oilCd;
+        } else {
+          tower.cooldown = 1 / stats.fireRate;
+        }
       }
     }
 

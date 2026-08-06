@@ -484,6 +484,77 @@ html, body {
   z-index: 9;
 }
 
+.ability-bar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(5.6rem + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 11;
+  display: flex;
+  gap: 0.45rem;
+  pointer-events: none;
+}
+
+.ability-bar.hidden {
+  display: none;
+}
+
+.ability-btn {
+  position: relative;
+  min-width: 5.4rem;
+  padding: 0.4rem 0.55rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 217, 102, 0.45);
+  background: rgba(18, 14, 8, 0.88);
+  color: #ffe9a8;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  cursor: pointer;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05rem;
+  touch-action: manipulation;
+}
+
+.ability-btn:hover:not(:disabled) {
+  background: rgba(255, 217, 102, 0.18);
+  border-color: #ffd966;
+}
+
+.ability-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ability-btn.is-cooling {
+  border-color: rgba(92, 225, 255, 0.35);
+  color: #b8d4e8;
+}
+
+.ability-hotkey {
+  position: absolute;
+  left: 0.3rem;
+  top: 0.25rem;
+  font-size: 0.68rem;
+  color: var(--accent);
+}
+
+.ability-name {
+  font-size: 0.88rem;
+  letter-spacing: 0.03em;
+}
+
+.ability-cost {
+  font-size: 0.72rem;
+  color: #ffd966;
+}
+
+.ability-btn.is-cooling .ability-cost {
+  color: var(--accent);
+}
+
 .tower-toolbar {
   position: absolute;
   bottom: 0;
@@ -1255,6 +1326,24 @@ html, body {
 
 /* Compact tower bar for phones/tablets in landscape */
 @media (orientation: landscape) and (max-height: 700px) {
+  .ability-bar {
+    bottom: calc(3.35rem + env(safe-area-inset-bottom, 0px));
+    gap: 0.28rem;
+  }
+
+  .ability-btn {
+    min-width: 3.6rem;
+    padding: 0.22rem 0.35rem 0.28rem;
+  }
+
+  .ability-name {
+    font-size: 0.68rem;
+  }
+
+  .ability-cost {
+    font-size: 0.6rem;
+  }
+
   .tower-toolbar {
     gap: 0.35rem;
     padding: 0.2rem 0.45rem calc(0.2rem + env(safe-area-inset-bottom, 0px));

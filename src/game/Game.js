@@ -24,6 +24,7 @@ import { CrystalPickupManager } from './CrystalPickupManager.js';
 import { Settings } from './Settings.js';
 import { PauseMenu } from './PauseMenu.js';
 import { Onboarding } from './Onboarding.js';
+import { ABILITY_DEFS, PowerAbilities } from './PowerAbilities.js';
 import { initDevPanel } from '../dev/DevPanel.js';
 import { loadProgress, recordRun, saveProgress, setLeaderboardName } from '../lib/progress.js';
 import { trySubmitGlobalRun } from '../lib/globalLeaderboard.js';
@@ -78,6 +79,7 @@ export class Game {
     this.enemies = new EnemyManager(this);
     this.waves = new WaveManager(this);
     this.onboarding = new Onboarding(this);
+    this.abilities = new PowerAbilities(this);
 
     this.towerDefs = new Map(towersData.towers.map((t) => [t.id, t]));
     this._raf = 0;
@@ -504,6 +506,7 @@ export class Game {
       this.resetMatch();
     }
     this.crystalPickups.clear();
+    this.abilities.reset();
     const total = (wavesConfig.totalWaves ?? 100);
     const wave = Math.max(1, Math.min(Math.floor(startWave) || 1, total));
     const refund = wave > 1 ? getMapContinueCrystals(this.progress, mapId) : 0;
@@ -858,8 +861,36 @@ export class Game {
     this.crystalPickups.spawn(position, drop);
     this.audio.enemyDeath();
     if (enemy.isBoss) {
-      this.ui.setMessage(`${enemy.def.name} destroyed! +${drop} crystals incoming`);
+      const bonus = Math.max(30, Math.floor(drop * 0.85));
+      const offset = position.clone();
+      offset.x += 0.7;
+      offset.z += 0.45;
+      this.crystalPickups.spawn(offset, bonus);
+      this.effects.spawnSplash(position.clone(), 3.2);
+      this.effects.spawnBeamBurst(position.clone().setY(1.1));
+      this.audio.bossKill();
+      this.ui.showWaveAnnouncement(
+        'Boss Slain!',
+        `+${drop + bonus} crystal loot`,
+        'complete',
+        2200,
+      );
+      this.ui.setMessage(
+        `${enemy.def.name} destroyed! Loot inbound: ${drop} + ${bonus} bonus crystals`,
+      );
     }
+  }
+
+  /** @param {import('./PowerAbilities.js').AbilityId} id */
+  tryUseAbility(id) {
+    const result = this.abilities.tryUse(id);
+    if (result.ok) return true;
+    if (result.reason === 'crystals') {
+      this.ui.setMessage(`Need ${ABILITY_DEFS[id]?.cost ?? 0} crystals for that ability`);
+    } else if (result.reason === 'cooldown') {
+      this.ui.setMessage('Ability still recharging…');
+    }
+    return false;
   }
 
   /**
@@ -973,6 +1004,7 @@ export class Game {
     this.ui.updateTowerAffordability(this.crystals);
     this.ui.updateRepairAllButton();
     this.ui.updateNextWaveButton();
+    this.ui.updateAbilityBar();
     if (this.selectedPlacedTower) {
       this.ui.updateTowerInspector(this.selectedPlacedTower);
     }
@@ -996,9 +1028,11 @@ export class Game {
       this.waves.update(dt);
       this.enemies.update(dt);
       this.towers.update(dt);
+      this.abilities.update(dt);
       this.effects.update(dt);
       this.crystalPickups.update(dt);
       this.map.update(dt);
+      this.ui.updateAbilityBar();
       if (this.selectedEnemy?.alive) {
         this.ui.updateEnemyInspector(this.selectedEnemy);
       } else if (this.selectedEnemy) {

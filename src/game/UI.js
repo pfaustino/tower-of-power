@@ -18,6 +18,7 @@ import {
   MAP_LIST,
   UNLOCK_WAVE_REQUIREMENT,
 } from '../lib/maps.js';
+import { ABILITY_LIST } from './PowerAbilities.js';
 
 const ATTACK_LABELS = {
   direct: 'Direct bolt — fast single target',
@@ -130,6 +131,7 @@ export class UI {
       resultMessage: document.getElementById('result-message'),
       towerToolbar: document.getElementById('tower-toolbar'),
       towerPanel: document.getElementById('tower-panel'),
+      abilityBar: document.getElementById('ability-bar'),
       btnRepairAll: document.getElementById('btn-repair-all'),
       btnNextWave: document.getElementById('btn-next-wave'),
       btnToolbarMaps: document.getElementById('btn-toolbar-maps'),
@@ -157,8 +159,11 @@ export class UI {
       resultStats: document.getElementById('result-stats'),
     };
     this.towerButtons = new Map();
+    /** @type {Map<string, HTMLButtonElement>} */
+    this.abilityButtons = new Map();
     this._announceTimer = 0;
     this._announceHideTimer = 0;
+    this._abilityBarKey = '';
   }
 
   /**
@@ -195,7 +200,60 @@ export class UI {
     this.els.btnEnemyInspectorClose?.addEventListener('click', () => game.deselectEnemy());
     document.getElementById('btn-leaderboard-close')?.addEventListener('click', () => game.closeLeaderboard());
     this.buildTowerPanel(towerDefs);
+    this.buildAbilityBar();
     this.buildMapSelect();
+  }
+
+  buildAbilityBar() {
+    const bar = this.els.abilityBar;
+    if (!bar) return;
+    bar.innerHTML = '';
+    this.abilityButtons.clear();
+    for (const def of ABILITY_LIST) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ability-btn';
+      btn.dataset.ability = def.id;
+      btn.innerHTML = `
+        <span class="ability-hotkey">${def.hotkey}</span>
+        <span class="ability-name">${def.name}</span>
+        <span class="ability-cost">${def.cost} cr</span>
+      `;
+      btn.title = `${def.blurb} (${def.hotkey})`;
+      btn.addEventListener('click', () => this.game.tryUseAbility(def.id));
+      bar.appendChild(btn);
+      this.abilityButtons.set(def.id, btn);
+    }
+  }
+
+  updateAbilityBar() {
+    const bar = this.els.abilityBar;
+    if (!bar || !this.game) return;
+    const playing = this.game.state === 'playing';
+    bar.classList.toggle('hidden', !playing);
+    if (!playing) return;
+
+    let key = `p:${this.game.paused ? 1 : 0};c:${Math.floor(this.game.crystals)};`;
+    for (const def of ABILITY_LIST) {
+      const cd = this.game.abilities.cooldowns[def.id] ?? 0;
+      key += `${def.id}:${cd > 0 ? Math.ceil(cd) : 0};`;
+    }
+    if (key === this._abilityBarKey) return;
+    this._abilityBarKey = key;
+
+    for (const def of ABILITY_LIST) {
+      const btn = this.abilityButtons.get(def.id);
+      if (!btn) continue;
+      const cd = this.game.abilities.cooldowns[def.id] ?? 0;
+      const canAfford = this.game.crystals >= def.cost;
+      const ready = cd <= 0 && canAfford && !this.game.paused;
+      const label = cd > 0 ? `${Math.ceil(cd)}s` : `${def.cost} cr`;
+      const costEl = btn.querySelector('.ability-cost');
+      if (costEl) costEl.textContent = label;
+      btn.disabled = !ready;
+      btn.classList.toggle('is-cooling', cd > 0);
+      btn.classList.toggle('is-expensive', cd <= 0 && !canAfford);
+    }
   }
 
   buildMapSelect() {
@@ -344,6 +402,7 @@ export class UI {
     this.els.title.classList.remove('hidden');
     this.els.hud.classList.add('hidden');
     this.els.towerToolbar.classList.add('hidden');
+    this.els.abilityBar?.classList.add('hidden');
     this.els.cameraZoomControls?.classList.add('hidden');
     this.els.inspector.classList.add('hidden');
     this.els.enemyInspector?.classList.add('hidden');
@@ -543,6 +602,7 @@ export class UI {
     this.els.title.classList.add('hidden');
     this.els.hud.classList.add('hidden');
     this.els.towerToolbar.classList.add('hidden');
+    this.els.abilityBar?.classList.add('hidden');
     this.els.cameraZoomControls?.classList.add('hidden');
     this.els.inspector.classList.add('hidden');
     this.els.enemyInspector?.classList.add('hidden');

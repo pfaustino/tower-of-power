@@ -261,6 +261,23 @@ export class Input {
       return;
     }
 
+    const abilityKey = e.key.toLowerCase();
+    if (abilityKey === 'q') {
+      e.preventDefault();
+      this.game.tryUseAbility('freeze');
+      return;
+    }
+    if (abilityKey === 'w') {
+      e.preventDefault();
+      this.game.tryUseAbility('strike');
+      return;
+    }
+    if (abilityKey === 'e') {
+      e.preventDefault();
+      this.game.tryUseAbility('overclock');
+      return;
+    }
+
     const key = e.key;
     for (const def of this.game.towerDefs.values()) {
       if (def.hotkey === key) {
