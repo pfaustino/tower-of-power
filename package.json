@@ -7,8 +7,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:itch": "vite build --base=./",
     "preview": "vite preview",
     "check": "npm run build",
+    "check:itch": "npm run build:itch",
     "assets:sync": "node scripts/sync-assets.mjs"
   },
   "dependencies": {

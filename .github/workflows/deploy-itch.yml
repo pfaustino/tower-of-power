@@ -1,0 +1,54 @@
+name: Deploy to itch.io
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: itch
+  cancel-in-progress: true
+
+jobs:
+  deploy-itch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync assets
+        run: npm run assets:sync
+
+      - name: Build for itch.io
+        env:
+          VITE_LEADERBOARD_WRITE_KEY: ${{ secrets.VITE_LEADERBOARD_WRITE_KEY }}
+        run: npm run build:itch
+
+      - name: Read version
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Download butler
+        run: |
+          curl -L -o butler.zip "https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default"
+          unzip -q butler.zip
+          chmod +x butler
+          ./butler -V
+
+      - name: Push to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: |
+          ./butler push dist pfaustino/tower-of-power:html5 --userversion "${{ steps.version.outputs.version }}"
