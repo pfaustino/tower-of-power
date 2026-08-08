@@ -141,7 +141,7 @@ export class Game {
         },
       ],
       actions: [
-        { label: '+100 crystals', fn: () => { this.crystals += 100; this.refreshHud(); } },
+        { label: '+1000 crystals', fn: () => { this.crystals += 1000; this.refreshHud(); } },
         { label: 'Start wave', fn: () => this.tryStartWave() },
         { label: 'Spawn scout', fn: () => this.enemies.spawn('scout') },
         { label: 'Win wave', fn: () => this.winCurrentWave() },
