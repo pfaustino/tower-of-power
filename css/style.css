@@ -365,11 +365,43 @@ html, body {
 
 .hud-bar {
   display: flex;
+  align-items: center;
   gap: 1.5rem;
   padding: 0.75rem 1.25rem;
   background: rgba(8, 14, 28, 0.92);
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.hud-audio {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  pointer-events: auto;
+}
+
+.hud-audio-control {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  color: #8ef4ff;
+}
+
+.hud-audio-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.hud-audio-control input[type='range'] {
+  width: 5.5rem;
+  height: 0.35rem;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 .hud-map-name {
@@ -1469,6 +1501,14 @@ html, body {
 
   .hud-map-name span {
     font-size: 0.85rem;
+  }
+
+  .hud-audio {
+    gap: 0.4rem;
+  }
+
+  .hud-audio-control input[type='range'] {
+    width: 3.6rem;
   }
 
   /* Keep board clear: slim top message, tutorial sits above the toolbar */

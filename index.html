@@ -19,6 +19,20 @@
         <div class="hud-stat"><span class="label">Crystals</span><span id="hud-crystals">0</span></div>
         <div class="hud-stat"><span class="label">Outpost HP</span><span id="hud-lives">0</span></div>
         <div class="hud-stat"><span class="label">Wave</span><span id="hud-wave">0</span></div>
+        <div class="hud-audio" aria-label="Audio">
+          <label class="hud-audio-control" title="Music volume">
+            <span class="hud-audio-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 3v10.55A3.5 3.5 0 1 0 14 17V7h4V3h-6z"/></svg>
+            </span>
+            <input type="range" id="hud-music" min="0" max="1" step="0.05" aria-label="Music volume" />
+          </label>
+          <label class="hud-audio-control" title="Sound volume">
+            <span class="hud-audio-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 10v4h4l5 5V5L7 10H3zm13.5 2a4.5 4.5 0 0 0-2.5-4.03v8.05A4.5 4.5 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06a9 9 0 0 0 0-17.54z"/></svg>
+            </span>
+            <input type="range" id="hud-sfx" min="0" max="1" step="0.05" aria-label="Sound volume" />
+          </label>
+        </div>
       </div>
       <div id="hud-message" class="hud-message"></div>
       <div id="hud-hint" class="hud-hint">Pick a tower (1–4), LMB place · RMB cancel · Start Wave or Space · Esc menu</div>

@@ -117,6 +117,8 @@ export class UI {
       crystals: document.getElementById('hud-crystals'),
       lives: document.getElementById('hud-lives'),
       wave: document.getElementById('hud-wave'),
+      hudMusic: document.getElementById('hud-music'),
+      hudSfx: document.getElementById('hud-sfx'),
       message: document.getElementById('hud-message'),
       hint: document.getElementById('hud-hint'),
       title: document.getElementById('title-screen'),
@@ -205,6 +207,18 @@ export class UI {
     this.els.btnInspectorClose.addEventListener('click', () => game.deselectPlacedTower());
     this.els.btnEnemyInspectorClose?.addEventListener('click', () => game.deselectEnemy());
     document.getElementById('btn-leaderboard-close')?.addEventListener('click', () => game.closeLeaderboard());
+    this.els.hudMusic?.addEventListener('input', () => {
+      const v = Number(this.els.hudMusic.value);
+      game.settings.setMusicVolume(v);
+      game.audio.setMusicVolume(v);
+    });
+    this.els.hudSfx?.addEventListener('input', () => {
+      const v = Number(this.els.hudSfx.value);
+      game.settings.setSfxVolume(v);
+      game.audio.setSfxVolume(v);
+    });
+    game.settings.onChange(() => this.syncHudAudio());
+    this.syncHudAudio();
     this.buildTowerPanel(towerDefs);
     this.buildAbilityBar();
     this.buildMapSelect();
@@ -381,6 +395,13 @@ export class UI {
         mountTowerPreview(canvas, def, this.game?.map?.tileSize ?? 2);
       }
     }
+  }
+
+  syncHudAudio() {
+    if (!this.game?.settings) return;
+    const { musicVolume, sfxVolume } = this.game.settings;
+    if (this.els.hudMusic) this.els.hudMusic.value = String(musicVolume);
+    if (this.els.hudSfx) this.els.hudSfx.value = String(sfxVolume);
   }
 
   /** @param {string | null} selectedId */
